@@ -75,6 +75,8 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
      `a_k` dengan `s·b_k` **dan** skor acuan ke-k dengan `s·` skor zestcore ke-k
      (bukan diuji terpisah dengan "or").
    - Toleransi tetap `np.allclose` default.
+   - Baris seri juga muncul di ruang nol heart_disease (PC19, 22, 24, 25); tidak
+     relevan karena komponen ruang nol tidak dibandingkan (poin 2).
 
 ## Batas cakupan yang diketahui
 
