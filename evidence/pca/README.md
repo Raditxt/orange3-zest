@@ -78,6 +78,12 @@ Continuize, k = 25).
 - **`.ows` hanya mencatat satu nama file per Save Data.** Node Save Data (skor)
   menyimpan `stored_name` terakhir saja (iris: `.pkl`, heart: `.csv`), padahal kedua
   format skor ada untuk kedua dataset.
+- **GUI tidak mengeluarkan `explained_variance_`**, hanya rasionya
+  (`explained_variance_ratio_`, kolom `variance` di `*_components.csv`). Varians dari
+  GUI hanya bisa diuji lewat rasio itu; `explained_variance_` sendiri diuji di skrip.
+- **Acuan skrip memakai API privat Orange.** `OWPCA._create_projector` (Orange 3.40.0)
+  dipakai untuk membuat projector yang sama persis dengan widget; bisa berubah di
+  versi Orange lain.
 - **CSV = pembulatan `%g`.** Dibanding `.pkl`/`.npy`, selisih relatif maks ≤ 5e-6
   (rtol=1e-5, atol=0). Untuk perbandingan presisi penuh pakai `.pkl`/`.npy`.
 - **GUI vs skrip.** Di mesin perekaman, `.pkl`/`.npy` sama persis dengan PCA Orange
