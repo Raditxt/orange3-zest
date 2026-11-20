@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Jalur dekomposisi inti PCA (covariance_eigh vs full SVD)
@@ -61,4 +61,18 @@ Cakupan `randomized` (berlaku untuk opsi mana pun):
 
 ## Keputusan
 
-<!-- Diisi Raditya. -->
+Saya memilih opsi 1 (hanya `covariance_eigh`) dengan cakupan a.
+
+Alasannya, dua dataset Tahap 1 (iris 150×4 dan heart_disease 303×25) di Orange
+memang diproses lewat `covariance_eigh`. Dengan satu jalur yang sama, zestcore bisa
+identik dengan Orange untuk data ini, sementara kode dan test tetap kecil sesuai target
+Tahap 1. Ketidakakuratan eigenvalue kecil pada jalur kovarians saya terima karena
+komponen yang diuji hanya yang eigenvalue-nya tidak kembar.
+
+Penjaga bentuk data: bila X tidak memenuhi p ≤ 1000 dan n ≥ 10p, zestcore tetap
+menghitung tetapi mengeluarkan `warnings.warn` yang menyatakan bahwa Orange memakai
+jalur lain (`full` atau `randomized`) untuk bentuk ini, sehingga hasilnya hanya
+mendekati dan tidak dijamin identik. `randomized` tidak ditiru. Sebelum dipakai,
+bentuk dataset baru seperti bank marketing dicek setelah Continuize. Kalau jatuh di
+luar syarat, selisihnya diukur, bukan diasumsikan. Keputusan ini ditinjau ulang bila
+model Tahap 2 butuh data lebar.

@@ -12,9 +12,11 @@ selisih maksimum dilaporkan.
 
 ## Langkah yang ditiru zestcore (jalur widget default)
 
-Input: X atribut (n × p, target tidak ikut PCA) + info tiap kolom (kontinu, atau
-diskrit dengan daftar nilai yang dideklarasikan). Langkah 1-3 adalah preprocessing;
-siapa yang mengerjakannya (zestcore atau pemanggil) diputuskan di ADR 0002.
+Klaim Tahap 1: PCA NumPy murni di zestcore identik dengan PCA Orange untuk X yang sudah
+diproses preprocessor Orange. Langkah 1-3 dikerjakan **pemanggil** (lapis widget dan
+test) dengan preprocessor Orange sendiri; zestcore hanya menerima X numerik siap pakai
+dan mengerjakan langkah 4-7 (ADR 0002). Langkah 1-3 dicatat di sini supaya pemanggil
+dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 
 1. **Continuize** (Klaim 2). Variabel diskrit dengan nilai deklarasi ≥ 2 jadi satu
    kolom 0/1 per nilai, urut sesuai `var.values`; biner juga 2 kolom. Nilai deklarasi
@@ -26,11 +28,15 @@ siapa yang mengerjakannya (zestcore atau pemanggil) diputuskan di ADR 0002.
 3. **Normalize, hanya bila opsi Normalize ON** (default widget ON; Klaim 1, 3). Bagi
    tiap kolom dengan SD **ddof=0**, tanpa mengurangi mean. SD = 0 atau NaN diganti 1
    (`normalize.py:49-54`).
-4. **Jumlah komponen** (Klaim 6). k = min(n, p, 100), n dan p dihitung *setelah*
-   langkah 1-3. Pilihan jumlah komponen di widget hanya mengiris output.
+4. **Jumlah komponen + penjaga bentuk** (Klaim 4, 6; ADR 0001). k = min(n, p, 100),
+   n dan p dihitung *setelah* langkah 1-3. Pilihan jumlah komponen di widget hanya
+   mengiris output. Bila X tidak memenuhi p ≤ 1000 dan n ≥ 10p, zestcore tetap
+   menghitung tetapi mengeluarkan `warnings.warn`: Orange memakai jalur lain (`full`
+   atau `randomized`) untuk bentuk ini, jadi hasilnya hanya mendekati dan tidak dijamin
+   identik.
 5. **Fit** (Klaim 3, 4, 6). Pusatkan dengan mean kolom; kovarians **ddof=1**;
-   dekomposisi (jalur: ADR 0001); urutkan eigenvalue menurun; eigenvalue negatif
-   dipotong ke 0. `explained_variance_` = eigenvalue. `explained_variance_ratio_` =
+   eigen-dekomposisi kovarians (hanya jalur `covariance_eigh`, ADR 0001); urutkan
+   eigenvalue menurun; eigenvalue negatif dipotong ke 0. `explained_variance_` = eigenvalue. `explained_variance_ratio_` =
    eigenvalue / jumlah *semua* min(n, p) eigenvalue sebelum diiris ke k
    (`_pca.py:652-653`); bila k < min(n, p), jumlah rasio < 1.
 6. **Tanda** (Klaim 5). Untuk tiap baris `components_`, cari elemen |terbesar|
@@ -48,16 +54,20 @@ siapa yang mengerjakannya (zestcore atau pemanggil) diputuskan di ADR 0002.
 2. **Komponen di ruang nol tidak dibandingkan.** Eigenvalue ~0 kembar, jadi vektornya
    tidak unik: heart_disease komponen 1-18 `covariance_eigh` vs `full` True
    (maks 2.98e-13), 19-25 False (maks 0.858). Jumlah arah varians nol
-   (eigenvalue < 1e-10) diprediksi dari data sebelum fit:
+   (eigenvalue < 1e-10) diprediksi di sisi test dari data sebelum fit (butuh metadata
+   variabel Orange, ADR 0002):
 
    jumlah nol = Σ (nilai deklarasi − nilai yang muncul + 1) untuk tiap variabel
    diskrit yang tidak dibuang, + jumlah kolom kontinu konstan.
 
    Bila semua nilai deklarasi muncul, suku diskrit = 1 per variabel. Variabel yang
    dibuang (nilai deklarasi < 2, atau seluruhnya NaN) menyumbang 0. Rumus ini batas
-   bawah: arah nol tambahan muncul bila n − 1 < p atau ada kolom kontinu yang kolinear.
+   bawah: arah nol tambahan muncul bila n − 1 < p atau ada kolom yang kolinear
+   (termasuk dua kolom indikator dari variabel berbeda yang selalu muncul bersama).
    Terbukti di heart_disease (7 = 7) dan data sintetis (6 = 6; rumus tanpa suku
-   "nilai yang tidak muncul" memprediksi 4). Dipakai untuk memprediksi bank marketing.
+   "nilai yang tidak muncul" memprediksi 4). Bank marketing (UCI): `bank-full` 9 = 9;
+   `bank-additional-full` 11 vs prediksi 10, tambahannya dari `housing=unknown` dan
+   `loan=unknown` yang muncul di 990 baris yang sama persis.
 3. **Tanda komponen seri** (disetujui Raditya, 20 Nov 2026). Baris k acuan (Orange)
    disebut seri bila |terbesar| − |kedua terbesar| < 1e-10.
    - Tidak seri: `components_[k]` dan kolom skor ke-k dibandingkan langsung.
@@ -76,8 +86,12 @@ siapa yang mengerjakannya (zestcore atau pemanggil) diputuskan di ADR 0002.
 - **Jalur `randomized`.** Bila min(n, p) ≤ 125, `auto` hanya memilih `covariance_eigh`
   atau `full`, dan `random_state` tidak berpengaruh. Bila min(n, p) ≥ 126, k = 100 <
   0.8·min(n, p) dan `auto` memilih `randomized` bila n < 10p dan max(n, p) > 500
-  (`_pca.py:539`; sintetis 1000×126, 1000×200, 600×130). Cakupan: ADR 0001.
-- **Bank marketing** belum dicek (data belum ada di repo).
+  (`_pca.py:539`; sintetis 1000×126, 1000×200, 600×130). `randomized` tidak ditiru;
+  di luar syarat `covariance_eigh` selisihnya diukur, bukan diasumsikan (ADR 0001).
+- **Bank marketing** (UCI, dicek 20 Nov 2026, data tidak disimpan di repo; target `y`
+  tidak ikut, "unknown" adalah kategori, bukan NaN): `bank-full` 45211×16 → 45211×51,
+  `bank-additional-full` 41188×20 → 41188×63 setelah Continuize. Keduanya n ≥ 10p,
+  `auto` memilih `covariance_eigh`, jadi masuk cakupan ADR 0001.
 
 ## Tabel klaim
 

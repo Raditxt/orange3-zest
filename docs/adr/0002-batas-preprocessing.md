@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Batas tanggung jawab preprocessing (zestcore vs pemanggil)
@@ -50,4 +50,17 @@ membutuhkan preprocessing serupa.
 
 ## Keputusan
 
-<!-- Diisi Raditya. -->
+Saya memilih opsi 2: pemanggil mengerjakan semua preprocessing.
+
+Lapis widget dan test memakai preprocessor Orange sendiri (Continuize → SklImpute →
+Normalize). zestcore hanya menerima X numerik siap pakai dan mengerjakan langkah 4-7:
+n_components, centering + kovarians ddof=1 + eigh, tanda `svd_flip`, dan skor. Dengan
+begitu, kesamaan preprocessing dijamin karena memakai kode Orange, dan aturan
+CLAUDE.md (zestcore NumPy murni, tanpa `import Orange`/`sklearn`) tetap terjaga tanpa
+meniru metadata variabel Orange.
+
+Klaim Tahap 1 ditulis sebagai: "PCA NumPy murni di zestcore identik dengan PCA Orange
+untuk X yang sudah diproses preprocessor Orange." Test memberi X hasil preprocessing
+Orange ke zestcore, dan rumus jumlah arah varians nol dihitung di sisi test. Untuk
+model Tahap 2, ini jadi preseden: zestcore menerima data numerik siap pakai, kecuali
+ada model yang memang butuh preprocessing khusus.
