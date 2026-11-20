@@ -39,7 +39,7 @@ def test_scores_csv_vs_pkl(prefix):
 
 @pytest.mark.parametrize("prefix", PREFIXES)
 def test_components_csv_vs_npy(prefix):
-    csv = read_components_csv(f"{prefix}_components.csv")
+    csv, _ = read_components_csv(f"{prefix}_components.csv")
     exact = read_components_npy(f"{prefix}_components.npy")
     assert csv.shape == exact.shape
     assert compare_csv(csv, exact)["allclose"]

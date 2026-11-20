@@ -5,7 +5,7 @@ from Orange.data import ContinuousVariable, DiscreteVariable, Domain, Table
 
 import pytest
 
-from pca_compare import compare, orange_widget_pca, tied_rows, zero_variance_count
+from pca_compare import compare, compare_ratio, orange_widget_pca, tied_rows, zero_variance_count
 
 
 def test_jumlah_arah_varians_nol_dari_metadata():
@@ -41,7 +41,7 @@ def test_komponen_seri_hanya_dari_variabel_biner():
     # blood sugar) seri; iris tidak ada. Baris ruang nol (PC19, 22, 24, 25) juga
     # seri, tapi tidak dibandingkan (aturan uji poin 2), jadi tidak diuji di sini.
     heart = Table("heart_disease")
-    comp, scores = orange_widget_pca(heart)
+    comp, scores, _ = orange_widget_pca(heart)
     assert comp.shape == (25, 25) and scores.shape == (303, 25)
     n_nonnull = len(comp) - zero_variance_count(heart)
     assert tied_rows(comp[:n_nonnull]) == [1, 2]
@@ -51,7 +51,7 @@ def test_komponen_seri_hanya_dari_variabel_biner():
 @pytest.fixture(scope="module")
 def heart_ref():
     heart = Table("heart_disease")
-    comp, scores = orange_widget_pca(heart)
+    comp, scores, _ = orange_widget_pca(heart)
     return comp, scores, zero_variance_count(heart)
 
 
@@ -107,3 +107,14 @@ def test_compare_ruang_nol_hanya_skor_dengan_atol(heart_ref):
     x[:, 18:] += 1e-8                                      # total 1.5e-8 > atol
     rows = compare(comp, scores, c, x, n_null)
     assert not any(_row(rows, "skor", k)["allclose"] for k in range(19, 26))
+
+
+def test_compare_ratio_non_nol_relatif_ruang_nol_absolut():
+    # Non-nol: pembulatan %g, rtol=1e-5 atol=0. Ruang nol: rasio ~1e-16 adalah noise
+    # numerik, jadi aturan yang sama dengan skor ruang nol (rtol=0, atol=1e-8).
+    ref = np.array([0.6, 0.4, 1.5e-16, 0.0])
+    rows = compare_ratio(np.array([0.600001, 0.4, 3e-16, 0.0]), ref, n_null=2)
+    assert [(r["pc"], r["rtol"], r["atol"], r["allclose"]) for r in rows] == [
+        ("PC1-2", 1e-5, 0, True), ("PC3-4", 0, 1e-8, True)]
+    rows = compare_ratio(np.array([0.60001, 0.4, 0.0, 2e-8]), ref, n_null=2)
+    assert [r["allclose"] for r in rows] == [False, False]

@@ -23,11 +23,13 @@ def read_scores_csv(name):
 
 
 def read_components_csv(name):
-    """Baris PC x fitur dari output Components; kolom `components` dan `variance`
-    (rasio varians) dibuang."""
+    """(loading PC x fitur, rasio varians per PC) dari output Components.
+    Kolom `components` (nama PC) dibuang; `variance` = explained_variance_ratio_."""
     header, rows = _read_csv(name)
     assert header[:2] == ["components", "variance"], header[:2]
-    return np.array([[float(v) for v in r[2:]] for r in rows])
+    loadings = np.array([[float(v) for v in r[2:]] for r in rows])
+    ratio = np.array([float(r[1]) for r in rows])
+    return loadings, ratio
 
 
 def read_scores_pkl(name):

@@ -6,14 +6,15 @@ TIE_GAP = 1e-10  # aturan uji poin 3
 
 
 def orange_widget_pca(table):
-    """components_ (k x p) dan skor (n x k) lewat projector widget PCA, setting
+    """components_ (k x p), skor (n x k), dan explained_variance_ratio_ (k) lewat
+    projector widget PCA, setting
     default (Normalize ON). k = min(n, p, 100); ncomponents widget hanya mengiris
     output (Klaim 6), jadi tidak berpengaruh di sini."""
     class Setting:
         normalize = True
         ncomponents = 2
     model = OWPCA._create_projector(Setting())(table)
-    return model.components_, model(table).X
+    return model.components_, model(table).X, model.explained_variance_ratio_
 
 
 def tied_rows(components):
@@ -84,3 +85,18 @@ def compare_csv(csv, exact):
             "allclose": bool(np.allclose(csv, exact, rtol=1e-5, atol=0)),
             "maks": float(diff.max()),
             "maks_rel": float((diff[nonzero] / np.abs(exact[nonzero])).max())}
+
+
+def compare_ratio(csv_ratio, ref_ratio, n_null):
+    """Rasio varians dari CSV Components vs acuan, dua baris:
+    - PC non-nol: pembulatan %g, sama dengan compare_csv (rtol=1e-5, atol=0).
+    - PC ruang nol: rasio ~1e-16 adalah noise numerik yang bisa berbeda antar BLAS,
+      jadi aturan skor ruang nol (rtol=0, atol=1e-8)."""
+    k = len(ref_ratio) - n_null
+    rows = [{"pc": f"PC1-{k}", **compare_csv(csv_ratio[:k], ref_ratio[:k])}]
+    if n_null:
+        a, b = csv_ratio[k:], ref_ratio[k:]
+        rows.append({"pc": f"PC{k + 1}-{len(ref_ratio)}", "rtol": 0, "atol": 1e-8,
+                     "allclose": bool(np.allclose(a, b, rtol=0, atol=1e-8)),
+                     "maks": float(np.max(np.abs(a - b))), "maks_rel": None})
+    return rows

@@ -9,7 +9,8 @@ from evidence_io import (read_components_csv, read_components_npy,
                          read_scores_csv, read_scores_pkl)
 
 IRIS_SCORES_ROW0 = [-2.26454, 0.505704, 0.121943, -0.0230733]
-IRIS_PC1 = [0.522372, -0.263355, 0.581254, 0.565611]  # tanpa variance 0.727705
+IRIS_PC1 = [0.522372, -0.263355, 0.581254, 0.565611]
+IRIS_VARIANCE = [0.727705, 0.230305, 0.0368383, 0.00515193]  # kolom `variance`
 
 
 def test_scores_csv_hanya_kolom_pc_tanpa_kelas():
@@ -19,10 +20,11 @@ def test_scores_csv_hanya_kolom_pc_tanpa_kelas():
     assert X[0].tolist() == IRIS_SCORES_ROW0
 
 
-def test_components_csv_tanpa_kolom_nama_dan_variance():
-    C = read_components_csv("iris_pca_norm-on_4pc_components.csv")
+def test_components_csv_loading_dan_rasio_varians_terpisah():
+    C, ratio = read_components_csv("iris_pca_norm-on_4pc_components.csv")
     assert C.shape == (4, 4)
     assert C[0].tolist() == IRIS_PC1
+    assert ratio.tolist() == IRIS_VARIANCE
 
 
 # Literal CSV = nilai yang sama ditulis %g (6 digit signifikan): galat relatif
