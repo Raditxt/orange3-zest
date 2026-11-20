@@ -6,15 +6,17 @@ TIE_GAP = 1e-10  # aturan uji poin 3
 
 
 def orange_widget_pca(table):
-    """components_ (k x p), skor (n x k), dan explained_variance_ratio_ (k) lewat
-    projector widget PCA, setting
-    default (Normalize ON). k = min(n, p, 100); ncomponents widget hanya mengiris
-    output (Klaim 6), jadi tidak berpengaruh di sini."""
+    """(proj, skor) lewat projector widget PCA, setting default (Normalize ON).
+
+    proj = objek sklearn PCA di dalam model Orange (components_, explained_variance_,
+    explained_variance_ratio_); skor n x k. k = min(n, p, 100); ncomponents widget
+    hanya mengiris output (Klaim 6), jadi tidak berpengaruh di sini.
+    OWPCA._create_projector adalah API privat Orange 3.40.0."""
     class Setting:
         normalize = True
         ncomponents = 2
     model = OWPCA._create_projector(Setting())(table)
-    return model.components_, model(table).X, model.explained_variance_ratio_
+    return model.proj, model(table).X
 
 
 def tied_rows(components):
@@ -51,6 +53,9 @@ def _row(jenis, k, seri, s, a, b, rtol, atol):
 def compare(ref_comp, ref_scores, got_comp, got_scores, n_null):
     """Satu baris per komponen per jenis ("komponen"/"skor"), aturan uji 1-3.
 
+    - n_null dianggap jumlah pasti arah nol. zero_variance_count hanya batas bawah
+      (aturan uji poin 2); untuk iris dan heart_disease sama dengan jumlah
+      explained_variance_ < 1e-10 terukur (diuji). Untuk data baru cek dulu.
     - n_null komponen terakhir (ruang nol): komponen tidak dibandingkan; skor
       dibandingkan dengan atol=1e-8, rtol=0 (nilainya noise ~1e-15, jadi galat
       relatif tidak bermakna).

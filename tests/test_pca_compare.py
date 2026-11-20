@@ -14,6 +14,15 @@ def test_jumlah_arah_varians_nol_dari_metadata():
     assert zero_variance_count(Table("iris")) == 0
 
 
+@pytest.mark.parametrize("dataset", ["iris", "heart_disease"])
+def test_jumlah_arah_varians_nol_sama_dengan_terukur(dataset):
+    # Rumus hanya batas bawah (aturan uji poin 2); compare() memakainya sebagai
+    # jumlah pasti, jadi untuk data yang dipakai harus sama dengan yang terukur.
+    table = Table(dataset)
+    proj, _ = orange_widget_pca(table)
+    assert zero_variance_count(table) == int((proj.explained_variance_ < 1e-10).sum())
+
+
 def test_jumlah_arah_varians_nol_semua_cabang_rumus():
     # Data sintetis Klaim 7 (docs/proofs/pca_internals_check.py): harapan 6,
     # sama dengan jumlah explained_variance_ < 1e-10 yang terukur di sana.
@@ -41,18 +50,19 @@ def test_komponen_seri_hanya_dari_variabel_biner():
     # blood sugar) seri; iris tidak ada. Baris ruang nol (PC19, 22, 24, 25) juga
     # seri, tapi tidak dibandingkan (aturan uji poin 2), jadi tidak diuji di sini.
     heart = Table("heart_disease")
-    comp, scores, _ = orange_widget_pca(heart)
+    proj, scores = orange_widget_pca(heart)
+    comp = proj.components_
     assert comp.shape == (25, 25) and scores.shape == (303, 25)
     n_nonnull = len(comp) - zero_variance_count(heart)
     assert tied_rows(comp[:n_nonnull]) == [1, 2]
-    assert tied_rows(orange_widget_pca(Table("iris"))[0]) == []
+    assert tied_rows(orange_widget_pca(Table("iris"))[0].components_) == []
 
 
 @pytest.fixture(scope="module")
 def heart_ref():
     heart = Table("heart_disease")
-    comp, scores, _ = orange_widget_pca(heart)
-    return comp, scores, zero_variance_count(heart)
+    proj, scores = orange_widget_pca(heart)
+    return proj.components_, scores, zero_variance_count(heart)
 
 
 def _row(rows, jenis, pc):
