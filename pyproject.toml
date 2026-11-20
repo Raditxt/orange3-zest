@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Orange3-Zest"
+version = "0.1.0"
+description = "..."                                   # ← isi: 1 kalimat
+readme = "README.md"
+authors = [{ name = "Raditya Mulya Akbar" }]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["orange3 add-on"]
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.1"]
+
+[project.optional-dependencies]
+orange = ["Orange3>=3.40"]
+
+[project.entry-points."orange3.addon"]
+zest = "orangecontrib.zest"
+
+[project.entry-points."orange.widgets"]
+Zest = "orangecontrib.zest.widgets"
+
+[tool.setuptools.packages.find]
+include = ["zestcore*", "orangecontrib*"]
+namespaces = true
