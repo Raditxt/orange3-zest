@@ -68,6 +68,10 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
    "nilai yang tidak muncul" memprediksi 4). Bank marketing (UCI): `bank-full` 9 = 9;
    `bank-additional-full` 11 vs prediksi 10, tambahannya dari `housing=unknown` dan
    `loan=unknown` yang muncul di 990 baris yang sama persis.
+
+   Skor ruang nol tetap dibandingkan, dengan rtol=0 dan atol=1e-8 (nilainya noise
+   ~1e-15, jadi galat relatif tidak bermakna). Aturan yang sama dipakai untuk rasio
+   varians ruang nol (~1e-16).
 3. **Tanda komponen seri** (disetujui Raditya, 20 Nov 2026). Baris k acuan (Orange)
    disebut seri bila |terbesar| − |kedua terbesar| < 1e-10.
    - Tidak seri: `components_[k]` dan kolom skor ke-k dibandingkan langsung.
