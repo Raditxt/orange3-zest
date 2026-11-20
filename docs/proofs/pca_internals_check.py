@@ -221,6 +221,67 @@ def check_klaim5():
           {k + 1: int(balik[k]) for k in range(18) if balik[k] > 0})
 
 
+def check_klaim6():
+    import numpy as np
+    from sklearn.decomposition import PCA as SkPCA
+
+    print("=== Klaim 6: n_components=100, random_state=0, dipotong ke min(X.shape) ===")
+
+    # (a) Parameter projector yang dibuat widget
+    proj = _widget_projector()
+    print("widget: n_components =", proj.params["n_components"],
+          "| random_state =", proj.params["random_state"],
+          "| svd_solver =", proj.params["svd_solver"],
+          "| projector.component =", proj.component)
+
+    # (b) Pemotongan min(min(X.shape), 100). X = data SETELAH preprocessing.
+    iris = Table("iris")
+    for nama, data in [("iris", iris), ("heart_disease", Table("heart_disease")),
+                       ("iris 3 baris", iris[:3])]:
+        skl = _widget_projector()(data).proj
+        print(f"{nama:14s} X = {skl.n_samples_} x {skl.n_features_in_} | "
+              f"n_components_ = {skl.n_components_} | "
+              f"components_.shape = {skl.components_.shape} | "
+              f"sum(ratio) = {skl.explained_variance_ratio_.sum():.15f}")
+
+    # (c) Tanpa pemotongan Orange, sklearn menolak n_components=100
+    try:
+        SkPCA(n_components=100).fit(iris.X)
+        print("sklearn n_components=100 pada iris: lolos")
+    except ValueError as e:
+        print("sklearn n_components=100 pada iris: ValueError:", str(e)[:70], "...")
+
+    # (d) Pilihan jumlah komponen di widget (ncomponents) tidak mengubah fit
+    class Lima:
+        normalize = True
+        ncomponents = 5
+    a = _widget_projector()(Table("heart_disease")).proj
+    b = OWPCA._create_projector(Lima())(Table("heart_disease")).proj
+    print("ncomponents 2 vs 5: n_components_ =", a.n_components_, b.n_components_,
+          "| components_ sama persis =", np.array_equal(a.components_, b.components_))
+
+    # (e) random_state tidak dipakai jalur covariance_eigh / full
+    for solver in ["auto", "full"]:
+        pre = PCA.preprocessors + [Normalize(center=False)]
+        r0 = PCA(n_components=100, random_state=0, svd_solver=solver,
+                 preprocessors=pre)(Table("heart_disease")).proj
+        r1 = PCA(n_components=100, random_state=12345, svd_solver=solver,
+                 preprocessors=pre)(Table("heart_disease")).proj
+        print(f"svd_solver={solver:4s} ({r0._fit_svd_solver}): random_state 0 vs 12345, "
+              f"components_ sama persis = {np.array_equal(r0.components_, r1.components_)}")
+
+    # (f) Batas 100 komponen: bila min(n, p) > 125 maka 100 < 0.8*min(n, p),
+    #     dan 'auto' bisa memilih 'randomized' (_pca.py:539). Data sintetis normal.
+    from Orange.data import Domain, ContinuousVariable
+    rng = np.random.default_rng(0)
+    for n, p in [(1000, 125), (1000, 126), (1000, 200), (600, 130)]:
+        dom = Domain([ContinuousVariable(f"x{i}") for i in range(p)])
+        skl = PCA(n_components=100, random_state=0)(
+            Table.from_numpy(dom, rng.normal(size=(n, p)))).proj
+        print(f"sintetis {n}x{p}: solver = {skl._fit_svd_solver} | "
+              f"n_components_ = {skl.n_components_}")
+
+
 if __name__ == "__main__":
     check_klaim1()
     print()
@@ -231,3 +292,5 @@ if __name__ == "__main__":
     check_klaim4()
     print()
     check_klaim5()
+    print()
+    check_klaim6()

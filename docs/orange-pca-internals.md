@@ -9,10 +9,15 @@ selisih maksimum dilaporkan.
 
 ## Status & langkah berikutnya
 
-**Status (20 Nov 2026):** DRAF. Klaim 1-5 terbukti. Klaim 6-7 belum.
+**Status (20 Nov 2026):** DRAF. Klaim 1-6 terbukti (commit "docs: spesifikasi PCA
+Orange klaim 5-6"). Klaim berikutnya: **7**, lalu finalisasi, ADR 0001 + 0002,
+satu baris di `CLAUDE.md`, laporan ke Notion (langkah 3-7 di bawah).
 Task Notion: "Orange T1: baca kode sumber PCA Orange" (Lagi dikerjakan).
 
-Langkah berikutnya, berurutan, satu langkah per giliran (tunggu Raditya):
+Langkah berikutnya, berurutan, satu langkah per giliran (tunggu Raditya).
+Pola tiap klaim: kode sumber (file:baris), `check_klaimN()` di skrip bukti, output
+asli, isi tabel + Implikasi, lalu tunggu Raditya. Klaim yang diajukan Raditya juga
+dicek dulu ke kode sumber sebelum ditulis (contoh: poin 9 Implikasi).
 
 1. ~~**Klaim 5** (tanda `svd_flip(u_based_decision=False)`): baca `sklearn/utils/extmath.py`
    (`svd_flip`) dan pemanggilnya di `_pca.py`; buktikan di iris & heart_disease bahwa
@@ -21,15 +26,20 @@ Langkah berikutnya, berurutan, satu langkah per giliran (tunggu Raditya):
    di luar 7 komponen ~0), lalu tunjukkan `components_` 1-18 identik antara
    `covariance_eigh` dan `full`, sedangkan baris 19-25 (ruang nol) tidak.~~
    SELESAI 20 Nov 2026 (lihat tabel dan Implikasi poin 7).
-2. **Klaim 6**: `PCA(n_components=100, random_state=0)` dan pemotongan
-   `min(min(X.shape), n_components)` di `Orange/projection/pca.py:40-41`.
+2. ~~**Klaim 6**: `PCA(n_components=100, random_state=0)` dan pemotongan
+   `min(min(X.shape), n_components)` di `Orange/projection/pca.py:40-41`.~~
+   SELESAI 20 Nov 2026 (lihat tabel dan Implikasi poin 8-10).
 3. **Klaim 7**: heart_disease: jumlah NaN, jumlah variabel diskrit, kolom sebelum
    (13) / sesudah Continuize (25). Cocokkan jumlah variabel diskrit dengan 7 komponen
    bervarians ~0 di Klaim 4. Tunjukkan nilai indikator hasil imputasi (pecahan).
-4. Lengkapi tabel + Implikasi di dokumen ini, ubah status jadi FINAL.
+4. **Finalisasi dokumen:** lengkapi tabel, ringkas Implikasi jadi langkah bernomor
+   yang bisa langsung ditiru zestcore, hapus status task "(Lagi dikerjakan)" dari
+   dokumen (status task hanya di Notion), ubah status jadi FINAL.
 5. **ADR** via skill `domain-modeling`, bagian Keputusan DIKOSONGKAN (Raditya mengisi):
    - `docs/adr/0001-jalur-dekomposisi-pca.md`: "Jalur dekomposisi untuk inti PCA
      (covariance_eigh vs SVD)". Opsi, konsekuensi, data solver per dataset dari Klaim 4.
+     Masukkan juga cakupan `randomized` (Implikasi poin 9): batasi zestcore ke
+     min(n, p) ≤ 125, atau ikut meniru `randomized` + `random_state`.
    - `docs/adr/0002-...md`: "Batas tanggung jawab preprocessing: di zestcore (NumPy)
      atau di pemanggil (Orange)". Opsi + konsekuensi.
 6. Tambah satu baris di `CLAUDE.md`:
@@ -50,7 +60,7 @@ yang membuat issue/ticket atau agen latar belakang. Belum boleh menulis kode di 
 | 3 | SD di Normalize ddof=0; kovarians PCA ddof=1 | `Orange/preprocess/normalize.py:25, 48, 53-58`; `Orange/statistics/util.py:352, 485` (`bn.nanvar`, ddof default 0); `sklearn/decomposition/_pca.py:591, 611-617` | `check_klaim3()` pada iris (150×4) | **Benar.** Normalize vs X/std(ddof=0): True, maks 1.78e-15; vs ddof=1: **False**, maks 0.0340. `explained_variance_` vs eig cov ddof=1: True, maks 6.01e-15; vs ddof=0: **False**, maks 0.0282 |
 | 4 | `svd_solver='auto'` memilih `covariance_eigh` jika p ≤ 1000 dan n ≥ 10p | `sklearn/decomposition/_pca.py:531-543` (pemilihan), `611-643` (isi jalur; eigenvalue negatif dipotong ke 0 di `637`); `Orange/projection/pca.py:33` | `check_klaim4()`: projector widget (Normalize ON), baca `model.proj._fit_svd_solver` | **Benar.** iris 150×4 (10p=40): `covariance_eigh`. heart_disease 303×25 (10p=250): `covariance_eigh`. Bank marketing: belum dicek (data belum ada di repo) |
 | 5 | Tanda: `svd_flip(u_based_decision=False)`, elemen \|terbesar\| tiap baris `components_` positif | `sklearn/utils/extmath.py:848-905` (`svd_flip`; cabang `else` = berbasis baris `v`, `argmax` ambil indeks pertama bila seri); `sklearn/decomposition/_pca.py:647` (dipanggil untuk jalur `full` dan `covariance_eigh`), `760, 773` (jalur arpack/randomized). Orange tidak membalik tanda sendiri (grep `sign\|flip` di `pca.py`, `base.py`, `owpca.py`: nihil) | `check_klaim5()`: jalur widget di iris & heart_disease; `covariance_eigh` vs `full`; deteksi baris seri; acak urutan baris 20× | **Benar, dengan catatan.** Semua baris positif (iris 4/4, heart_disease 25/25). Komponen 1-18 heart_disease: selisih eigenvalue terkecil 0.0127 (tidak kembar); `eigh` vs `full`: True, maks 2.98e-13. Baris 19-25: False, maks 0.858. **Tapi** PC2 dan PC3 heart_disease *seri* (jarak 6.7e-16, 8.9e-16): dua kolom indikator variabel biner (`gender`, `fasting blood sugar > 120`) punya loading sama besar beda tanda. Acak urutan baris 20×: tanda PC2 terbalik 10×, PC3 2× |
-| 6 | Widget `PCA(n_components=100, random_state=0)`, dipotong ke `min(X.shape)` | `owpca.py:27, 278`; `pca.py:40-41` (sudah dibaca, belum dibuktikan) | belum | **belum** |
+| 6 | Widget `PCA(n_components=100, random_state=0)`, dipotong ke `min(X.shape)` | `Orange/widgets/unsupervised/owpca.py:27` (`MAX_COMPONENTS = 100`), `278-279` (projector; `ncomponents` hanya disimpan di `projector.component`), `176-186` (fit sekali, ratio dari model), `326-354` (output hanya diiris `[:self.ncomponents]`); `Orange/projection/pca.py:38-41` (pemotongan, X setelah preprocessing); `sklearn/decomposition/_pca.py:738, 754, 771` (`random_state` hanya dipakai arpack/randomized), `698-705` (pemotongan sklearn) | `check_klaim6()`: parameter projector; iris, heart_disease, iris 3 baris; sklearn tanpa pemotongan; `ncomponents` 2 vs 5; `random_state` 0 vs 12345 | **Benar.** iris 150×4 → 4 komponen; heart_disease 303×25 → 25 (dari 25 kolom sesudah Continuize, bukan 13); iris 3 baris 3×4 → 3 (dipotong oleh n). Tanpa pemotongan sklearn `ValueError`. `sum(ratio)` = 1.000000000000000 di ketiganya. `ncomponents` 2 vs 5: `components_` sama persis (`array_equal`). `random_state` 0 vs 12345: sama persis di `covariance_eigh` dan `full`. **Batas:** pemotongan sebenarnya `min(n, p, 100)`; data sintetis 1000×125 → `full`, 100 komponen; 1000×126, 1000×200, 600×130 → **`randomized`**, 100 komponen (`_pca.py:539`) |
 | 7 | heart_disease punya NaN dan variabel diskrit | belum | belum | **belum** |
 
 Catatan angka Klaim 4: `explained_variance_` heart_disease (jalur widget) punya **7 komponen
@@ -110,4 +120,22 @@ Urutan yang harus ditiru (jalur widget default):
    (PC2: `gender`, jarak 6.7e-16; PC3: `fasting blood sugar > 120`, jarak 8.9e-16).
    Penyebab: Continuize Indicators mengubah variabel biner jadi dua kolom `x` dan `1-x`.
    Baris seri di ruang nol (heart_disease 19, 22, 24, 25) tidak diuji (lihat poin 6).
-8. Jumlah komponen (Klaim 6): menyusul.
+8. **Jumlah komponen (Klaim 6):** fit menghasilkan k = min(n, p, 100) komponen,
+   dengan n, p dari X **setelah** preprocessing. Pilihan jumlah komponen di widget
+   (`ncomponents`) tidak mengubah fit, hanya mengiris output.
+9. **Jalur solver lewat widget (Klaim 6, `_pca.py:531-543`):** bila min(n, p) ≤ 125
+   maka k = min(n, p) ≥ 0.8·min(n, p), syarat `randomized`
+   (`1 <= n_components < 0.8 * min(X.shape)`, baris 539) selalu gagal, jadi hanya
+   `covariance_eigh` atau `full` yang terpilih, dan `random_state` tidak berpengaruh
+   (`array_equal` True di kedua jalur). **Tidak berlaku umum:** bila min(n, p) ≥ 126,
+   k = 100 < 0.8·min(n, p) dan `auto` memilih `randomized` bila n < 10p dan
+   max(n, p) > 500 (sintetis 1000×126, 1000×200, 600×130: `randomized`). Di jalur itu
+   `random_state=0` ikut menentukan hasil. iris dan heart_disease ada di wilayah
+   dua jalur. Cakupan zestcore (dua jalur + batas min(n, p) ≤ 125, atau ikut
+   `randomized`) diputuskan di ADR 0001.
+10. **`explained_variance_ratio_` = eigenvalue / total varians X (ddof=1)**, bukan
+   dibagi jumlah eigenvalue yang disimpan. Jalur `full`/`covariance_eigh`: total
+   dihitung dari semua min(n, p) eigenvalue *sebelum* dipotong (`_pca.py:652-653`;
+   pemotongan baru di `698-705`), sama dengan trace kovarians. Jalur `randomized`:
+   total dari varians kolom X (`_pca.py:741-744, 794`). Bila k < min(n, p), jumlah
+   rasio < 1.
