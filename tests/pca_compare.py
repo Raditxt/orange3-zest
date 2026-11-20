@@ -1,0 +1,86 @@
+"""Bandingkan dua hasil PCA menurut aturan uji docs/orange-pca-internals.md."""
+import numpy as np
+from Orange.widgets.unsupervised.owpca import OWPCA
+
+TIE_GAP = 1e-10  # aturan uji poin 3
+
+
+def orange_widget_pca(table):
+    """components_ (k x p) dan skor (n x k) lewat projector widget PCA, setting
+    default (Normalize ON). k = min(n, p, 100); ncomponents widget hanya mengiris
+    output (Klaim 6), jadi tidak berpengaruh di sini."""
+    class Setting:
+        normalize = True
+        ncomponents = 2
+    model = OWPCA._create_projector(Setting())(table)
+    return model.components_, model(table).X
+
+
+def tied_rows(components):
+    """Indeks baris yang seri: |terbesar| - |kedua terbesar| < TIE_GAP."""
+    top = -np.sort(-np.abs(components), axis=1)
+    return [int(k) for k in np.flatnonzero(top[:, 0] - top[:, 1] < TIE_GAP)]
+
+
+def zero_variance_count(table):
+    """Batas bawah jumlah arah varians nol (aturan uji poin 2), dari data sebelum fit:
+    sum(nilai deklarasi - nilai yang muncul + 1) per variabel diskrit yang tidak
+    dibuang, + jumlah kolom kontinu konstan."""
+    count = 0
+    for var in table.domain.attributes:
+        col = table.get_column(var)
+        present = col[~np.isnan(col)]
+        if present.size == 0:          # seluruhnya NaN: dibuang SklImpute
+            continue
+        if var.is_discrete:
+            if len(var.values) < 2:    # dibuang Continuize (continuize.py:21)
+                continue
+            count += len(var.values) - len(np.unique(present)) + 1
+        elif present.min() == present.max():
+            count += 1
+    return count
+
+
+def _row(jenis, k, seri, s, a, b, rtol, atol):
+    return {"jenis": jenis, "pc": k + 1, "seri": seri, "s": s, "rtol": rtol,
+            "atol": atol, "allclose": bool(np.allclose(a, b, rtol=rtol, atol=atol)),
+            "maks": float(np.max(np.abs(a - b)))}
+
+
+def compare(ref_comp, ref_scores, got_comp, got_scores, n_null):
+    """Satu baris per komponen per jenis ("komponen"/"skor"), aturan uji 1-3.
+
+    - n_null komponen terakhir (ruang nol): komponen tidak dibandingkan; skor
+      dibandingkan dengan atol=1e-8, rtol=0 (nilainya noise ~1e-15, jadi galat
+      relatif tidak bermakna).
+    - Komponen seri di acuan: s = sign(a_k . b_k), dipakai untuk komponen **dan**
+      kolom skor ke-k. Selain itu s = 1.
+    - Toleransi lain: np.allclose default (rtol=1e-5, atol=1e-8).
+    """
+    k_all = len(ref_comp)
+    n_nonnull = k_all - n_null
+    tied = set(tied_rows(ref_comp[:n_nonnull]))
+    rows = []
+    for k in range(k_all):
+        if k >= n_nonnull:
+            rows.append(_row("skor", k, False, 1, ref_scores[:, k],
+                             got_scores[:, k], 0, 1e-8))
+            continue
+        seri = k in tied
+        s = int(np.sign(ref_comp[k] @ got_comp[k])) if seri else 1
+        rows.append(_row("komponen", k, seri, s, ref_comp[k], s * got_comp[k],
+                         1e-5, 1e-8))
+        rows.append(_row("skor", k, seri, s, ref_scores[:, k],
+                         s * got_scores[:, k], 1e-5, 1e-8))
+    return rows
+
+
+def compare_csv(csv, exact):
+    """CSV Save Data vs nilai float aslinya (.pkl/.npy). %g = 6 digit signifikan,
+    galat murni relatif (<= 5e-6), jadi rtol=1e-5 dan atol=0."""
+    diff = np.abs(csv - exact)
+    nonzero = exact != 0
+    return {"rtol": 1e-5, "atol": 0,
+            "allclose": bool(np.allclose(csv, exact, rtol=1e-5, atol=0)),
+            "maks": float(diff.max()),
+            "maks_rel": float((diff[nonzero] / np.abs(exact[nonzero])).max())}
