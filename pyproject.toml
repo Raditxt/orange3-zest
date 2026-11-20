@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "Orange3-Zest"
 version = "0.1.0"
-description = "..."                                   # ← isi: 1 kalimat
+description = "Add-on Orange Data Mining untuk model-model penelitian yang belum tersedia di Orange."
 readme = "README.md"
 authors = [{ name = "Raditya Mulya Akbar" }]
 license = "GPL-3.0-or-later"
