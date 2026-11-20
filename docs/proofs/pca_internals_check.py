@@ -149,6 +149,78 @@ def check_klaim4():
           "| nilai terkecil =", ev.min())
 
 
+def check_klaim5():
+    import numpy as np
+
+    print("=== Klaim 5: tanda komponen lewat svd_flip(u_based_decision=False) ===")
+    np.set_printoptions(precision=4, linewidth=100)
+
+    # (a) Tiap baris components_: elemen dengan |nilai| terbesar harus positif.
+    #     Selisih |terbesar| - |kedua terbesar| dicetak untuk melihat apakah ada
+    #     baris yang nyaris seri (argmax memilih indeks pertama kalau seri).
+    for nama in ["iris", "heart_disease"]:
+        C = _widget_projector()(Table(nama)).proj.components_
+        idx = np.abs(C).argmax(axis=1)
+        tanda = C[np.arange(len(C)), idx]
+        urut = np.sort(np.abs(C), axis=1)
+        jarak = urut[:, -1] - urut[:, -2]
+        print(f"{nama:14s} baris = {len(C)} | baris dengan elemen |terbesar| > 0: "
+              f"{int((tanda > 0).sum())} | jarak |terbesar|-|kedua| minimum = "
+              f"{jarak.min():.3e} (baris {jarak.argmin() + 1})")
+
+    # (b) heart_disease: selisih eigenvalue berurutan. Eigenvalue kembar
+    #     berarti vektor eigennya tidak unik (bebas diputar di ruang itu).
+    ev = _widget_projector()(Table("heart_disease")).proj.explained_variance_
+    gap = ev[:-1] - ev[1:]
+    print("heart_disease selisih eigenvalue k - (k+1), k = 1..18:")
+    print(gap[:18])
+    print("selisih terkecil di k = 1..18 =", f"{gap[:18].min():.3e}",
+          "| eigenvalue ke-18 =", f"{ev[17]:.3e}", "| ke-19 =", f"{ev[18]:.3e}")
+
+    # (c) Bandingkan covariance_eigh (pilihan 'auto') dengan 'full' (SVD LAPACK).
+    #     Preprocessing dan setting lain sama persis dengan widget.
+    data = Table("heart_disease")
+    pre = PCA.preprocessors + [Normalize(center=False)]
+    eigh = PCA(n_components=100, random_state=0, preprocessors=pre)(data).proj
+    full = PCA(n_components=100, random_state=0, svd_solver="full",
+               preprocessors=pre)(data).proj
+    print("solver:", eigh._fit_svd_solver, "vs", full._fit_svd_solver)
+    a, b = eigh.components_, full.components_
+    print("components_ 1-18 : allclose =", np.allclose(a[:18], b[:18]),
+          "| max|selisih| =", f"{np.abs(a[:18] - b[:18]).max():.3e}")
+    print("components_ 19-25: allclose =", np.allclose(a[18:], b[18:]),
+          "| max|selisih| =", f"{np.abs(a[18:] - b[18:]).max():.3e}")
+    print("explained_variance_ 1-18: allclose =",
+          np.allclose(eigh.explained_variance_[:18], full.explained_variance_[:18]),
+          "| max|selisih| =",
+          f"{np.abs(eigh.explained_variance_[:18] - full.explained_variance_[:18]).max():.3e}")
+
+    # (d) Baris yang nyaris seri: dua elemen |terbesar| sama. Nama kolom diambil
+    #     dari data setelah preprocessing widget.
+    proj = _widget_projector()
+    pre = data
+    for pp in proj.preprocessors:
+        pre = pp(pre)
+    nama_kolom = [v.name for v in pre.domain.attributes]
+    C0 = proj(data).proj.components_
+    urut = np.sort(np.abs(C0), axis=1)
+    jarak = urut[:, -1] - urut[:, -2]
+    for k in np.where(jarak < 1e-10)[0]:
+        i, j = np.argsort(-np.abs(C0[k]))[:2]
+        print(f"seri baris {k + 1:2d} (jarak {jarak[k]:.1e}): "
+              f"{nama_kolom[i]} = {C0[k, i]:+.15f}, {nama_kolom[j]} = {C0[k, j]:+.15f}")
+
+    # (e) Data sama, urutan baris diacak (20 kali): komponen 1-18 mana yang
+    #     tandanya terbalik dibanding urutan asli?
+    rng = np.random.default_rng(0)
+    balik = np.zeros(18, dtype=int)
+    for _ in range(20):
+        C = _widget_projector()(data[rng.permutation(len(data))]).proj.components_
+        balik += np.array([C[k] @ C0[k] < 0 for k in range(18)])
+    print("acak baris 20x, komponen 1-18 yang tandanya pernah terbalik:",
+          {k + 1: int(balik[k]) for k in range(18) if balik[k] > 0})
+
+
 if __name__ == "__main__":
     check_klaim1()
     print()
@@ -157,3 +229,5 @@ if __name__ == "__main__":
     check_klaim3()
     print()
     check_klaim4()
+    print()
+    check_klaim5()
