@@ -65,7 +65,7 @@ def heart_ref():
     return proj.components_, scores, zero_variance_count(heart)
 
 
-def _row(rows, jenis, pc):
+def _find(rows, jenis, pc):
     [r] = [r for r in rows if r["jenis"] == jenis and r["pc"] == pc]
     return r
 
@@ -77,7 +77,7 @@ def test_compare_identik_semua_lolos_dan_selisih_dicatat(heart_ref):
     assert all(r["maks"] == 0.0 for r in rows)
     # 18 komponen + 25 skor; komponen ruang nol (PC19-25) tidak dibandingkan.
     assert len(rows) == 18 + 25
-    assert _row(rows, "skor", 19)["rtol"] == 0 and _row(rows, "skor", 19)["atol"] == 1e-8
+    assert _find(rows, "skor", 19)["rtol"] == 0 and _find(rows, "skor", 19)["atol"] == 1e-8
 
 
 def test_compare_tanda_terbalik_di_komponen_tidak_seri_gagal(heart_ref):
@@ -85,8 +85,8 @@ def test_compare_tanda_terbalik_di_komponen_tidak_seri_gagal(heart_ref):
     c, x = comp.copy(), scores.copy()
     c[0], x[:, 0] = -c[0], -x[:, 0]                       # PC1 tidak seri
     rows = compare(comp, scores, c, x, n_null)
-    assert not _row(rows, "komponen", 1)["allclose"]
-    assert not _row(rows, "skor", 1)["allclose"]
+    assert not _find(rows, "komponen", 1)["allclose"]
+    assert not _find(rows, "skor", 1)["allclose"]
 
 
 def test_compare_tanda_terbalik_di_komponen_seri_lolos_dengan_s(heart_ref):
@@ -95,7 +95,7 @@ def test_compare_tanda_terbalik_di_komponen_seri_lolos_dengan_s(heart_ref):
     c[1], x[:, 1] = -c[1], -x[:, 1]                       # PC2 seri
     rows = compare(comp, scores, c, x, n_null)
     assert all(r["allclose"] for r in rows)
-    assert _row(rows, "komponen", 2)["s"] == -1 and _row(rows, "skor", 2)["s"] == -1
+    assert _find(rows, "komponen", 2)["s"] == -1 and _find(rows, "skor", 2)["s"] == -1
 
 
 def test_compare_s_dari_komponen_juga_dipakai_untuk_skor(heart_ref):
@@ -104,8 +104,8 @@ def test_compare_s_dari_komponen_juga_dipakai_untuk_skor(heart_ref):
     c = comp.copy()
     c[1] = -c[1]
     rows = compare(comp, scores, c, scores.copy(), n_null)
-    assert _row(rows, "komponen", 2)["allclose"]
-    assert not _row(rows, "skor", 2)["allclose"]
+    assert _find(rows, "komponen", 2)["allclose"]
+    assert not _find(rows, "skor", 2)["allclose"]
 
 
 def test_compare_ruang_nol_hanya_skor_dengan_atol(heart_ref):
@@ -116,7 +116,7 @@ def test_compare_ruang_nol_hanya_skor_dengan_atol(heart_ref):
     assert all(r["allclose"] for r in compare(comp, scores, c, x, n_null))
     x[:, 18:] += 1e-8                                      # total 1.5e-8 > atol
     rows = compare(comp, scores, c, x, n_null)
-    assert not any(_row(rows, "skor", k)["allclose"] for k in range(19, 26))
+    assert not any(_find(rows, "skor", k)["allclose"] for k in range(19, 26))
 
 
 def test_compare_ratio_non_nol_relatif_ruang_nol_absolut():

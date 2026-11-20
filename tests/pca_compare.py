@@ -2,7 +2,8 @@
 import numpy as np
 from Orange.widgets.unsupervised.owpca import OWPCA
 
-TIE_GAP = 1e-10  # aturan uji poin 3
+RTOL, ATOL = 1e-5, 1e-8  # np.allclose default = toleransi spec
+TIE_GAP = 1e-10          # aturan uji poin 3
 
 
 def orange_widget_pca(table):
@@ -70,7 +71,7 @@ def compare(ref_comp, ref_scores, got_comp, got_scores, n_null):
     for k in range(k_all):
         if k >= n_nonnull:
             rows.append(_row("skor", k, False, 1, ref_scores[:, k],
-                             got_scores[:, k], 0, 1e-8))
+                             got_scores[:, k], 0, ATOL))
             continue
         seri = k in tied
         s = int(np.sign(ref_comp[k] @ got_comp[k])) if seri else 1
@@ -78,9 +79,9 @@ def compare(ref_comp, ref_scores, got_comp, got_scores, n_null):
             raise ValueError(f"PC{k + 1} seri dan a_k . b_k = 0: tanda s tidak bisa "
                              "ditentukan (komponen pembanding tegak lurus atau nol)")
         rows.append(_row("komponen", k, seri, s, ref_comp[k], s * got_comp[k],
-                         1e-5, 1e-8))
+                         RTOL, ATOL))
         rows.append(_row("skor", k, seri, s, ref_scores[:, k],
-                         s * got_scores[:, k], 1e-5, 1e-8))
+                         s * got_scores[:, k], RTOL, ATOL))
     return rows
 
 
@@ -89,8 +90,8 @@ def compare_csv(csv, exact):
     galat murni relatif (<= 5e-6), jadi rtol=1e-5 dan atol=0."""
     diff = np.abs(csv - exact)
     nonzero = exact != 0
-    return {"rtol": 1e-5, "atol": 0,
-            "allclose": bool(np.allclose(csv, exact, rtol=1e-5, atol=0)),
+    return {"rtol": RTOL, "atol": 0,
+            "allclose": bool(np.allclose(csv, exact, rtol=RTOL, atol=0)),
             "maks": float(diff.max()),
             "maks_rel": float((diff[nonzero] / np.abs(exact[nonzero])).max())}
 
@@ -104,7 +105,7 @@ def compare_ratio(csv_ratio, ref_ratio, n_null):
     rows = [{"pc": f"PC1-{k}", **compare_csv(csv_ratio[:k], ref_ratio[:k])}]
     if n_null:
         a, b = csv_ratio[k:], ref_ratio[k:]
-        rows.append({"pc": f"PC{k + 1}-{len(ref_ratio)}", "rtol": 0, "atol": 1e-8,
-                     "allclose": bool(np.allclose(a, b, rtol=0, atol=1e-8)),
+        rows.append({"pc": f"PC{k + 1}-{len(ref_ratio)}", "rtol": 0, "atol": ATOL,
+                     "allclose": bool(np.allclose(a, b, rtol=0, atol=ATOL)),
                      "maks": float(np.max(np.abs(a - b))), "maks_rel": None})
     return rows
