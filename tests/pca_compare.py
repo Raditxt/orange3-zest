@@ -74,6 +74,9 @@ def compare(ref_comp, ref_scores, got_comp, got_scores, n_null):
             continue
         seri = k in tied
         s = int(np.sign(ref_comp[k] @ got_comp[k])) if seri else 1
+        if s == 0:
+            raise ValueError(f"PC{k + 1} seri dan a_k . b_k = 0: tanda s tidak bisa "
+                             "ditentukan (komponen pembanding tegak lurus atau nol)")
         rows.append(_row("komponen", k, seri, s, ref_comp[k], s * got_comp[k],
                          1e-5, 1e-8))
         rows.append(_row("skor", k, seri, s, ref_scores[:, k],

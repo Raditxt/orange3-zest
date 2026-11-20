@@ -128,3 +128,13 @@ def test_compare_ratio_non_nol_relatif_ruang_nol_absolut():
         ("PC1-2", 1e-5, 0, True), ("PC3-4", 0, 1e-8, True)]
     rows = compare_ratio(np.array([0.60001, 0.4, 0.0, 2e-8]), ref, n_null=2)
     assert [r["allclose"] for r in rows] == [False, False]
+
+
+def test_compare_komponen_seri_tegak_lurus_raise(heart_ref):
+    # a_k . b_k = 0 -> s = sign(0) = 0: tanda tidak bisa ditentukan, jangan
+    # diam-diam membandingkan dengan vektor nol.
+    comp, scores, n_null = heart_ref
+    c = comp.copy()
+    c[1] = 0.0                                             # a . b tepat 0
+    with pytest.raises(ValueError, match="PC2"):
+        compare(comp, scores, c, scores.copy(), n_null)
