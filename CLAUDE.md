@@ -12,6 +12,7 @@ Tahap 1 adalah proof of concept: PCA NumPy murni yang hasilnya identik 1:1 denga
 - `orangecontrib/zest/`: lapis widget Orange, hanya membungkus `zestcore`. `orangecontrib/` adalah namespace package, jangan tambahkan `__init__.py` langsung di dalamnya.
 - `tests/`: pytest. scikit-learn dan Orange boleh dipakai di sini sebagai pembanding.
 - `notebooks/`, `docs/`, `evidence/` (CSV + .ows dari GUI Orange).
+- Spesifikasi PCA: docs/orange-pca-internals.md; keputusan desain: docs/adr/.
 
 ## Lingkungan
 

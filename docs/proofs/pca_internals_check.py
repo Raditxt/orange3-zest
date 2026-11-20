@@ -282,6 +282,119 @@ def check_klaim6():
               f"n_components_ = {skl.n_components_}")
 
 
+def check_klaim7():
+    import numpy as np
+
+    print("=== Klaim 7: heart_disease, NaN, variabel diskrit, 7 arah varians ~0 ===")
+    np.set_printoptions(precision=4, linewidth=100, suppress=True)
+    data = Table("heart_disease")
+
+    # (a) Data mentah: tipe tiap atribut dan jumlah NaN (target tidak ikut PCA)
+    attrs = data.domain.attributes
+    print("X mentah =", data.X.shape, "| target =", data.domain.class_var.name)
+    for i, v in enumerate(attrs):
+        jenis = f"diskrit, {len(v.values)} nilai" if v.is_discrete else "kontinu"
+        print(f"  {v.name:26s} {jenis:18s} NaN = {int(np.isnan(data.X[:, i]).sum())}")
+    diskrit = [v for v in attrs if v.is_discrete]
+    print("total NaN =", int(np.isnan(data.X).sum()),
+          "| baris dengan NaN =", int(np.isnan(data.X).any(axis=1).sum()),
+          "| variabel diskrit =", len(diskrit),
+          "| kontinu =", len(attrs) - len(diskrit))
+
+    # (b) Kolom sebelum/sesudah Continuize: kontinu tetap 1 kolom,
+    #     diskrit jadi 1 kolom per nilai
+    con = Continuize()(data)
+    harap = (len(attrs) - len(diskrit)) + sum(len(v.values) for v in diskrit)
+    print("kolom: sebelum =", len(attrs), "| sesudah Continuize =",
+          len(con.domain.attributes), "| harapan 6 + sum(jumlah nilai) =", harap)
+
+    # (c) SklImpute: NaN diisi rata-rata kolom. Indikator thal di baris kosong
+    #     jadi pecahan, dan jumlah indikator satu variabel tetap 1.
+    imp = SklImpute()(con)
+    nama = [v.name for v in imp.domain.attributes]
+    print("kolom sesudah SklImpute =", len(nama), "| NaN tersisa =",
+          int(np.isnan(imp.X).sum()))
+    kosong = np.where(np.isnan(data.X[:, attrs.index(data.domain["thal"])]))[0]
+    kol_thal = [j for j, s in enumerate(nama) if s.startswith("thal=")]
+    print("baris thal kosong:", kosong + 1, "| kolom:", [nama[j] for j in kol_thal])
+    print(imp.X[np.ix_(kosong, kol_thal)])
+    print("rata-rata kolom thal (data lengkap):",
+          np.nanmean(con.X[:, kol_thal], axis=0))
+    # jumlah kolom indikator per variabel diskrit, semua baris
+    grup = {v.name: [j for j, s in enumerate(nama) if s.startswith(v.name + "=")]
+            for v in diskrit}
+    jml = np.array([imp.X[:, g].sum(axis=1) for g in grup.values()])
+    print("jumlah indikator per variabel = 1 di semua baris:",
+          np.allclose(jml, 1), "| max|jumlah - 1| =", f"{np.abs(jml - 1).max():.1e}")
+
+    # (d) Cocokkan dengan Klaim 4. Setelah Normalize, kolom z_j = x_j / sd_j.
+    #     Karena sum_j x_j = 1 untuk tiap grup, vektor w (w_j = sd_j di kolom
+    #     grup, 0 di luar) memberi z @ w = 1 konstan, jadi varians arah w = 0.
+    model = _widget_projector()(data)
+    ev, C = model.proj.explained_variance_, model.proj.components_
+    nol = ev < 1e-10
+    print("komponen dengan explained_variance_ < 1e-10:", int(nol.sum()),
+          "| nomor:", np.where(nol)[0] + 1)
+    sd = imp.X.std(axis=0, ddof=0)                  # SD yang dipakai Normalize
+    W = np.zeros((len(grup), len(nama)))
+    for r, g in enumerate(grup.values()):
+        W[r, g] = sd[g]
+    W /= np.linalg.norm(W, axis=1, keepdims=True)   # panjang 1
+    # Proyeksi tiap w ke 18 komponen bervarians > 0 harus ~0,
+    # dan sisa w setelah diproyeksikan ke 7 komponen ~0 harus ~0.
+    ke_besar = np.abs(W @ C[~nol].T).max()
+    Cn = C[nol]
+    sisa = np.abs(W - (W @ Cn.T) @ Cn).max()
+    print("max|w . komponen 1-18|      =", f"{ke_besar:.2e}")
+    print("max|w - proyeksi ke 19-25|  =", f"{sisa:.2e}")
+    print("rank W =", np.linalg.matrix_rank(W),
+          "| varians data di arah w (ddof=1):",
+          np.var(_preprocessed(data) @ W.T, axis=0, ddof=1))
+
+    # (e) Rumus jumlah arah varians nol, diuji di data sintetis 50 baris.
+    #     Continuize membuang variabel dari len(var.values) yang dideklarasikan
+    #     (continuize.py:21), bukan dari nilai yang muncul. Normalize mengganti
+    #     SD = 0 dengan 1 (normalize.py:53-54), jadi kolom konstan tetap konstan.
+    from Orange.data import Domain, ContinuousVariable, DiscreteVariable
+    rng = np.random.default_rng(0)
+    n = 50
+    kolom = {
+        # nama: (variabel, isi kolom, prediksi rumus awal, prediksi koreksi)
+        "k1": (ContinuousVariable("k1"), rng.normal(size=n), 0, 0),
+        "k2": (ContinuousVariable("k2"), rng.normal(size=n), 0, 0),
+        "konst": (ContinuousVariable("konst"), np.full(n, 7.0), 1, 1),
+        # A: 3 nilai, semua muncul, 3 NaN
+        "A": (DiscreteVariable("A", values=("a", "b", "c")),
+              np.r_[rng.integers(0, 3, n - 3), [np.nan] * 3], 1, 1),
+        # B: 3 nilai, hanya 2 muncul -> (3-2)+1 = 2
+        "B": (DiscreteVariable("B", values=("a", "b", "c")),
+              rng.integers(0, 2, n).astype(float), 1, 2),
+        # C: 2 nilai, hanya 1 muncul -> (2-1)+1 = 2
+        "C": (DiscreteVariable("C", values=("a", "b")), np.zeros(n), 1, 2),
+        # D: 2 nilai, seluruhnya NaN -> dibuang SklImpute, 0
+        "D": (DiscreteVariable("D", values=("a", "b")), np.full(n, np.nan), 0, 0),
+        # E: 1 nilai -> dibuang Continuize, 0
+        "E": (DiscreteVariable("E", values=("a",)), np.zeros(n), 0, 0),
+    }
+    sint = Table.from_numpy(Domain([v for v, *_ in kolom.values()]),
+                            np.column_stack([x for _, x, *_ in kolom.values()]))
+    ev = _widget_projector()(sint).proj.explained_variance_
+    print(f"sintetis {n} baris: kolom setelah preprocessing =",
+          _preprocessed(sint).shape[1], "| komponen =", len(ev),
+          "| explained_variance_ < 1e-10 =", int((ev < 1e-10).sum()))
+    print("  prediksi rumus awal (diskrit >=2 nilai, tidak seluruhnya NaN, + kontinu konstan) =",
+          sum(a for *_, a, _ in kolom.values()))
+    print("  prediksi koreksi (per diskrit: nilai deklarasi - nilai muncul + 1) =",
+          sum(b for *_, b in kolom.values()))
+
+
+def _preprocessed(data):
+    """X setelah preprocessing widget (Continuize, SklImpute, Normalize)."""
+    for pp in _widget_projector().preprocessors:
+        data = pp(data)
+    return data.X
+
+
 if __name__ == "__main__":
     check_klaim1()
     print()
@@ -294,3 +407,5 @@ if __name__ == "__main__":
     check_klaim5()
     print()
     check_klaim6()
+    print()
+    check_klaim7()
