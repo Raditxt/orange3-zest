@@ -36,3 +36,4 @@ def test_gui_rasio_varians_csv_vs_skrip(dataset, prefix):
     rows = compare_ratio(gui_ratio, proj.explained_variance_ratio_,
                          zero_variance_count(table))
     assert [r for r in rows if not r["allclose"]] == []
+    assert rows[0]["maks_rel"] <= 5e-6                  # PC non-nol: batas %g

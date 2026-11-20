@@ -34,7 +34,8 @@ def test_scores_csv_vs_pkl(prefix):
     csv = read_scores_csv(f"{prefix}_scores.csv")
     exact = read_scores_pkl(f"{prefix}_scores.pkl")
     assert csv.shape == exact.shape
-    assert compare_csv(csv, exact)["allclose"]
+    r = compare_csv(csv, exact)
+    assert r["allclose"] and r["maks_rel"] <= 5e-6     # batas %g, bukan hanya rtol
 
 
 @pytest.mark.parametrize("prefix", PREFIXES)
@@ -42,4 +43,5 @@ def test_components_csv_vs_npy(prefix):
     csv, _ = read_components_csv(f"{prefix}_components.csv")
     exact = read_components_npy(f"{prefix}_components.npy")
     assert csv.shape == exact.shape
-    assert compare_csv(csv, exact)["allclose"]
+    r = compare_csv(csv, exact)
+    assert r["allclose"] and r["maks_rel"] <= 5e-6     # batas %g, bukan hanya rtol
