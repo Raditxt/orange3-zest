@@ -118,3 +118,36 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 | 5 | Tanda: `svd_flip(u_based_decision=False)`, elemen \|terbesar\| tiap baris `components_` positif | `sklearn/utils/extmath.py:848-905` (`svd_flip`; cabang `else` = berbasis baris `v`, `argmax` ambil indeks pertama bila seri); `sklearn/decomposition/_pca.py:647` (dipanggil untuk jalur `full` dan `covariance_eigh`), `760, 773` (jalur arpack/randomized). Orange tidak membalik tanda sendiri (grep `sign\|flip` di `pca.py`, `base.py`, `owpca.py`: nihil) | `check_klaim5()`: jalur widget di iris & heart_disease; `covariance_eigh` vs `full`; deteksi baris seri; acak urutan baris 20× | **Benar, dengan catatan.** Semua baris positif (iris 4/4, heart_disease 25/25). Komponen 1-18 heart_disease: selisih eigenvalue terkecil 0.0127 (tidak kembar); `eigh` vs `full`: True, maks 2.98e-13. Baris 19-25: False, maks 0.858. **Tapi** PC2 dan PC3 heart_disease *seri* (jarak 6.7e-16, 8.9e-16): dua kolom indikator variabel biner (`gender`, `fasting blood sugar > 120`) punya loading sama besar beda tanda. Acak urutan baris 20×: tanda PC2 terbalik 10×, PC3 2× |
 | 6 | Widget `PCA(n_components=100, random_state=0)`, dipotong ke `min(X.shape)` | `Orange/widgets/unsupervised/owpca.py:27` (`MAX_COMPONENTS = 100`), `278-279` (projector; `ncomponents` hanya disimpan di `projector.component`), `176-186` (fit sekali, ratio dari model), `326-354` (output hanya diiris `[:self.ncomponents]`); `Orange/projection/pca.py:38-41` (pemotongan, X setelah preprocessing); `sklearn/decomposition/_pca.py:738, 754, 771` (`random_state` hanya dipakai arpack/randomized), `698-705` (pemotongan sklearn) | `check_klaim6()`: parameter projector; iris, heart_disease, iris 3 baris; sklearn tanpa pemotongan; `ncomponents` 2 vs 5; `random_state` 0 vs 12345 | **Benar.** iris 150×4 → 4 komponen; heart_disease 303×25 → 25 (dari 25 kolom sesudah Continuize, bukan 13); iris 3 baris 3×4 → 3 (dipotong oleh n). Tanpa pemotongan sklearn `ValueError`. `sum(ratio)` = 1.000000000000000 di ketiganya. `ncomponents` 2 vs 5: `components_` sama persis (`array_equal`). `random_state` 0 vs 12345: sama persis di `covariance_eigh` dan `full`. **Batas:** pemotongan sebenarnya `min(n, p, 100)`; data sintetis 1000×125 → `full`, 100 komponen; 1000×126, 1000×200, 600×130 → **`randomized`**, 100 komponen (`_pca.py:539`) |
 | 7 | heart_disease: 6 NaN, 7 variabel diskrit; 13 → 25 kolom; 7 arah varians ~0 = 1 per variabel diskrit | `Orange/preprocess/preprocess.py:150-173` (SklImpute mean, kolom seluruhnya NaN dibuang); `Orange/preprocess/continuize.py:21, 45-60`; `Orange/preprocess/transformation.py:131-152`; `Orange/preprocess/normalize.py:49-54` (SD 0/NaN → 1) | `check_klaim7()`: tipe & NaN per atribut; kolom per tahap; indikator hasil imputasi; arah w per grup indikator; data sintetis 50 baris | **Benar.** NaN: `major vessels colored` 4, `thal` 2 (6 baris). 7 diskrit + 6 kontinu; 13 → 25 kolom = 6 + (2+4+2+3+2+3+3). Indikator `thal` baris 88, 267 = `[0.5515, 0.3887, 0.0598]` (mean kolom), jumlah per grup = 1 (maks selisih 0). Arah w (w_j = sd_j di kolom grup): ke komponen 1-18 maks 4.4e-15, sisa di 19-25 maks 4.3e-15, rank 7, varians 0. Sintetis (kontinu konstan, nilai tidak muncul, diskrit seluruhnya NaN, diskrit 1 nilai): 6 arah nol, rumus koreksi 6, rumus awal 4 |
+
+## Status implementasi (23 Nov 2026)
+
+**Inti PCA zestcore: selesai**, commit `1503b04`.
+
+- File: `zestcore/pca.py` (`pca(X, n_components=None)` → `PCAResult(mean, components,
+  explained_variance, explained_variance_ratio, scores)`; belum ada `transform` untuk
+  data baru). Test: `tests/test_zestcore_pca.py`; helper `tests/pca_compare.py`
+  (`preprocessed_X`, `compare`, `compare_variance`), `tests/datasets.py` (`load_table`,
+  bank-full dari `../magang-datamining/datasets/bank-full.csv` atau env `ZEST_BANK_FULL`).
+- Jalankan: `D:\Orange\python.exe -m pytest tests -q -p no:warnings` → 45 lulus, 2 skip
+  (bukti GUI bank-full belum ada; prefix yang diharapkan `bank_pca_norm-on_51pc`, File
+  widget harus memakai `y` sebagai target).
+- Selisih maksimum zestcore vs projector widget Orange (Normalize ON,
+  `n_components=100`), semua `np.allclose` lolos dengan toleransi aturan uji:
+
+  | Dataset | X | nol | komponen | skor | skor nol | expl. var | rasio | seri (s) |
+  |---|---|---|---|---|---|---|---|---|
+  | iris | 150×4 | 0 | 1.29e-14 | 1.92e-14 | – | 3.77e-15 | 6.66e-16 | – |
+  | heart_disease | 303×25 | 7 | 3.37e-14 | 1.93e-13 | 8.66e-15 | 2.83e-15 | 1.14e-16 | PC2, 3 (+1) |
+  | bank-full | 45211×51 | 9 | 4.11e-14 | 6.86e-13 | 5.16e-14 | 1.33e-15 | 2.78e-17 | PC2, 4, 6, 7 (+1) |
+
+  Identik dalam toleransi, **tidak bit-identik** (selisih ~1e-14 sampai 7e-13),
+  walaupun rumus C dan skornya sama dengan sklearn.
+
+**Catatan untuk task notebook** (perbandingan iris/heart vs Orange & scikit-learn):
+
+- Pakai `preprocessed_X(table)` + `pca(X, n_components=100)` dan
+  `compare`/`compare_variance` dari `tests/pca_compare.py`; tabel di atas dapat dibuat
+  ulang dari situ.
+- scikit-learn langsung: `PCA(n_components=min(X.shape), svd_solver="auto")` pada X yang
+  sama; jalurnya `covariance_eigh`, jadi diharapkan sama dengan baris Orange.
+- bank-full sudah lolos vs Orange (task bank marketing tinggal masuk notebook).
