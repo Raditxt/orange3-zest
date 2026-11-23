@@ -2,7 +2,8 @@
 
 Output widget PCA yang direkam dari GUI Orange, dipakai untuk membuktikan bahwa PCA
 Orange lewat skrip (projector widget) sama dengan yang dihasilkan GUI. Perbandingannya
-ada di `notebooks/01_pca_gui_evidence.ipynb` dan `tests/` (aturan uji:
+ada di `notebooks/01_pca_gui_evidence.ipynb` (iris, heart_disease),
+`notebooks/02_pca_perbandingan.ipynb` (ketiga dataset) dan `tests/` (aturan uji:
 `docs/orange-pca-internals.md`).
 
 ## Lingkungan perekaman
@@ -25,19 +26,19 @@ Paket tambahan di Python Orange, hanya untuk tes dan notebook (tidak dipakai GUI
 
 ## Workflow dan setting widget
 
-Kedua workflow sama bentuknya (`*_workflow.png`): File → PCA → Save Data (Transformed
+Ketiga workflow sama bentuknya (`*_workflow.png`): File → PCA → Save Data (Transformed
 Data), Save Data (1) (Components), Python Script (Components). Setting dibaca dari
 `.ows`:
 
-| Widget | Setting | iris | heart_disease |
-|---|---|---|---|
-| File | dataset | `Orange/datasets/iris.tab` (bawaan) | `Orange/datasets/heart_disease.tab` (bawaan) |
-| PCA | Normalize variables | ON | ON |
-| PCA | Components | 4 | 25 |
-| PCA | Explained variance | 100% | 100% |
-| PCA | Apply Automatically | ON | ON |
-| Save Data, Save Data (1) | Add type annotations | OFF | OFF |
-| Save Data, Save Data (1) | Autosave | OFF | OFF |
+| Widget | Setting | iris | heart_disease | bank-full |
+|---|---|---|---|---|
+| File | dataset | `Orange/datasets/iris.tab` (bawaan) | `Orange/datasets/heart_disease.tab` (bawaan) | `bank-full.csv` (UCI, di luar repo), `y` = target |
+| PCA | Normalize variables | ON | ON | ON |
+| PCA | Components | 4 | 25 | 51 |
+| PCA | Explained variance | 100% | 100% | 100% |
+| PCA | Apply Automatically | ON | ON | ON |
+| Save Data, Save Data (1) | Add type annotations | OFF | OFF | OFF (lihat catatan `.ows` bank) |
+| Save Data, Save Data (1) | Autosave | OFF | OFF | OFF |
 
 Components = jumlah komponen maksimum untuk data ini (min(n, p)), jadi tidak ada
 komponen yang terpotong. Setting PCA juga terlihat di `*_settings.png`.
@@ -57,10 +58,23 @@ Nama file: `<data>_pca_norm-on_<k>pc_<output>.<ext>`.
 | `*_settings.png` | – | screenshot | jendela widget PCA |
 | `*_workflow.png` | – | screenshot | kanvas workflow |
 
-`<data>` = `iris` (150 × 4, k = 4) dan `heart` (heart_disease 303 × 25 setelah
-Continuize, k = 25).
+`<data>` = `iris` (150 × 4, k = 4), `heart` (heart_disease 303 × 25 setelah
+Continuize, k = 25) dan `bank` (bank-full 45211 × 51 setelah Continuize, k = 51).
+Untuk bank hanya ada `*_scores.pkl`; CSV skor (45211 baris) tidak dibuat.
 
 ## Catatan
+
+- **bank-full tidak disimpan di repo** (lihat `docs/orange-pca-internals.md`, batas
+  cakupan). File widget membaca `bank-full.csv` dengan `y` sebagai target, sehingga 16
+  atribut menjadi 51 kolom. Tes dan notebook membacanya lewat `tests/datasets.py`
+  (`../magang-datamining/datasets/bank-full.csv` atau env `ZEST_BANK_FULL`).
+- **`bank_pca.ows` disimpan sebelum CSV Components disimpan ulang.** CSV Components
+  pertama keliru (berisi skor karena kabel salah sambung, lalu masih dengan anotasi
+  tipe). File di repo adalah hasil simpan ulang dengan Add type annotations OFF
+  (diperiksa: header + 51 baris komponen). Setting Save Data di `.ows` masih mencatat
+  keadaan lama: `add_type_annotations` True dan `stored_name` node Save Data (skor) =
+  `bank_pca_norm-on_51pc_components.csv`. Setting File dan PCA di `.ows` sesuai tabel
+  di atas.
 
 - **Save Data gagal menulis `.pkl` untuk output Components.** File yang dihasilkan
   0 byte. Karena itu komponen presisi penuh diambil lewat widget Python Script:
