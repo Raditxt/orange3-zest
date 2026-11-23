@@ -147,6 +147,10 @@ Bagian ini untuk sesi berikutnya setelah `/clear`: cukup baca ini + CLAUDE.md.
 - Test: `D:\Orange\python.exe -m pytest tests -q -p no:warnings` → 47 lulus, 0 skip.
   bank-full dibaca dari `../magang-datamining/datasets/bank-full.csv` atau env
   `ZEST_BANK_FULL`; bila tidak ada, test bank di-skip.
+- **GitHub Actions untuk test PCA** (`3ae50a7`). `.github/workflows/tests.yml`:
+  ubuntu-latest, Python 3.12, versi paket sama dengan Python bawaan Orange, Qt
+  `offscreen`. Run pertama di main hijau: 40 lulus, 7 skip (semua test bank-full,
+  datanya tidak ada di repo).
 
 Selisih maksimum vs PCA Orange (projector widget, Normalize ON, `n_components=100`).
 Semua lolos aturan uji (non-nol rtol=1e-5 atol=1e-8; ruang nol rtol=0 atol=1e-8):
@@ -185,11 +189,12 @@ Keputusan yang disetujui Raditya (jangan diubah tanpa diskusi):
 
 ### Task berikutnya
 
-1. **GitHub Actions untuk test PCA** (task Notion "Orange T1: GitHub Actions menjalankan
-   test PCA"). Catatan: test vs Orange butuh Orange terpasang; bank-full tidak ada di
-   repo, jadi test bank akan di-skip di CI kecuali datanya disediakan.
-2. **Laporan Tahap 1 (BAB I–V)**, ditulis Raditya. Bahan BAB IV: tabel di atas dan
-   narasi di akhir notebook 02. Engineer hanya membantu kerangka dan cek akurasi teknis.
+1. **Laporan Tahap 1 (BAB I–V)**, ditulis Raditya, dikerjakan di luar repo. Bahan BAB IV:
+   tabel di atas dan narasi di akhir notebook 02. Engineer hanya membantu kerangka dan
+   cek akurasi teknis.
+2. **Tahap 2: kajian model kandidat** (task Notion "Orange T2: kajian model kandidat +
+   pilih model pertama yang masuk add-on"). Memilih model pertama dari daftar rujukan
+   Prof. Irfan; brief lengkap ada di Catatan task tersebut.
 
 ### Langkah lanjut (di luar Tahap 1)
 
