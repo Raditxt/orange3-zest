@@ -113,6 +113,10 @@ $env:PYTHONUTF8 = "1"
 D:\Orange\Scripts\jupyter-execute.exe --inplace notebooks\01_pca_gui_evidence.ipynb
 ```
 
+CI (`.github/workflows/tests.yml`, GitHub Actions, ubuntu-latest) menjalankan tes yang
+sama dengan versi paket di atas dan Qt `offscreen`. bank-full tidak ada di runner, jadi
+tes bank di-skip di CI; tes bank hanya jalan di mesin lokal yang punya datanya.
+
 Sesuaikan `D:\Orange` dengan lokasi instalasi Orange. `PYTHONUTF8=1` wajib di
 Windows: tanpa itu `jupyter-execute` membaca notebook sebagai cp1252 dan merusak
 karakter non-ASCII (`≤` jadi `â‰¤`). `python -m jupyter execute` tidak berjalan di
