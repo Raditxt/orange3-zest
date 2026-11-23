@@ -37,7 +37,7 @@ Data), Save Data (1) (Components), Python Script (Components). Setting dibaca da
 | PCA | Components | 4 | 25 | 51 |
 | PCA | Explained variance | 100% | 100% | 100% |
 | PCA | Apply Automatically | ON | ON | ON |
-| Save Data, Save Data (1) | Add type annotations | OFF | OFF | OFF (lihat catatan `.ows` bank) |
+| Save Data, Save Data (1) | Add type annotations | OFF | OFF | OFF |
 | Save Data, Save Data (1) | Autosave | OFF | OFF | OFF |
 
 Components = jumlah komponen maksimum untuk data ini (min(n, p)), jadi tidak ada
@@ -68,14 +68,6 @@ Untuk bank hanya ada `*_scores.pkl`; CSV skor (45211 baris) tidak dibuat.
   cakupan). File widget membaca `bank-full.csv` dengan `y` sebagai target, sehingga 16
   atribut menjadi 51 kolom. Tes dan notebook membacanya lewat `tests/datasets.py`
   (`../magang-datamining/datasets/bank-full.csv` atau env `ZEST_BANK_FULL`).
-- **`bank_pca.ows` disimpan sebelum CSV Components disimpan ulang.** CSV Components
-  pertama keliru (berisi skor karena kabel salah sambung, lalu masih dengan anotasi
-  tipe). File di repo adalah hasil simpan ulang dengan Add type annotations OFF
-  (diperiksa: header + 51 baris komponen). Setting Save Data di `.ows` masih mencatat
-  keadaan lama: `add_type_annotations` True dan `stored_name` node Save Data (skor) =
-  `bank_pca_norm-on_51pc_components.csv`. Setting File dan PCA di `.ows` sesuai tabel
-  di atas.
-
 - **Save Data gagal menulis `.pkl` untuk output Components.** File yang dihasilkan
   0 byte. Karena itu komponen presisi penuh diambil lewat widget Python Script:
 
