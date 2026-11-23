@@ -6,18 +6,32 @@ RTOL, ATOL = 1e-5, 1e-8  # np.allclose default = toleransi spec
 TIE_GAP = 1e-10          # aturan uji poin 3
 
 
-def orange_widget_pca(table):
-    """(proj, skor) lewat projector widget PCA, setting default (Normalize ON).
-
-    proj = objek sklearn PCA di dalam model Orange (components_, explained_variance_,
-    explained_variance_ratio_); skor n x k. k = min(n, p, 100); ncomponents widget
-    hanya mengiris output (Klaim 6), jadi tidak berpengaruh di sini.
+def _widget_projector():
+    """Projector widget PCA, setting default (Normalize ON). ncomponents widget hanya
+    mengiris output (Klaim 6), jadi tidak berpengaruh di sini.
     OWPCA._create_projector adalah API privat Orange 3.40.0."""
     class Setting:
         normalize = True
         ncomponents = 2
-    model = OWPCA._create_projector(Setting())(table)
+    return OWPCA._create_projector(Setting())
+
+
+def orange_widget_pca(table):
+    """(proj, skor) lewat projector widget PCA.
+
+    proj = objek sklearn PCA di dalam model Orange (components_, explained_variance_,
+    explained_variance_ratio_); skor n x k. k = min(n, p, 100)."""
+    model = _widget_projector()(table)
     return model.proj, model(table).X
+
+
+def preprocessed_X(table):
+    """X yang diterima sklearn di dalam Orange: preprocessor projector widget
+    (Continuize -> SklImpute -> Normalize) dijalankan berurutan (ADR 0002)."""
+    data = table
+    for pp in _widget_projector().preprocessors:
+        data = pp(data)
+    return data.X
 
 
 def tied_rows(components):
@@ -82,6 +96,21 @@ def compare(ref_comp, ref_scores, got_comp, got_scores, n_null):
                          RTOL, ATOL))
         rows.append(_row("skor", k, seri, s, ref_scores[:, k],
                          s * got_scores[:, k], RTOL, ATOL))
+    return rows
+
+
+def compare_variance(ref, got, n_null):
+    """explained_variance_ atau rasio, dua baris: PC non-nol np.allclose default;
+    PC ruang nol (~1e-15, sebagian dipotong ke 0) rtol=0, atol=1e-8, aturan yang sama
+    dengan skor ruang nol (aturan uji poin 2)."""
+    k = len(ref) - n_null
+    rows = []
+    for pc, a, b, rtol in [(f"PC1-{k}", ref[:k], got[:k], RTOL),
+                           (f"PC{k + 1}-{len(ref)}", ref[k:], got[k:], 0)]:
+        if a.size:
+            rows.append({"pc": pc, "rtol": rtol, "atol": ATOL,
+                         "allclose": bool(np.allclose(a, b, rtol=rtol, atol=ATOL)),
+                         "maks": float(np.max(np.abs(a - b)))})
     return rows
 
 

@@ -28,13 +28,17 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 3. **Normalize, hanya bila opsi Normalize ON** (default widget ON; Klaim 1, 3). Bagi
    tiap kolom dengan SD **ddof=0**, tanpa mengurangi mean. SD = 0 atau NaN diganti 1
    (`normalize.py:49-54`).
-4. **Jumlah komponen + penjaga bentuk** (Klaim 4, 6; ADR 0001). k = min(n, p, 100),
-   n dan p dihitung *setelah* langkah 1-3. Pilihan jumlah komponen di widget hanya
-   mengiris output. Bila X tidak memenuhi p ≤ 1000 dan n ≥ 10p, zestcore tetap
+4. **Jumlah komponen + penjaga bentuk** (Klaim 4, 6; ADR 0001). Widget: k = min(n, p,
+   100), n dan p dihitung *setelah* langkah 1-3. Pilihan jumlah komponen di widget hanya
+   mengiris output. zestcore memotong ke min(n, p); angka 100 dikirim pemanggil
+   (`n_components=100`), tidak ditetapkan di zestcore. Bila X tidak memenuhi p ≤ 1000 dan n ≥ 10p, zestcore tetap
    menghitung tetapi mengeluarkan `warnings.warn`: Orange memakai jalur lain (`full`
    atau `randomized`) untuk bentuk ini, jadi hasilnya hanya mendekati dan tidak dijamin
    identik.
-5. **Fit** (Klaim 3, 4, 6). Pusatkan dengan mean kolom; kovarians **ddof=1**;
+5. **Fit** (Klaim 3, 4, 6). Kovarians **ddof=1**, dihitung dalam bentuk sklearn
+   (X.T @ X − n·mean·meanᵀ)/(n−1) (`_pca.py:611-617`), setara matematis dengan
+   Xc.T @ Xc/(n−1) tapi beda floating-point maks 2.7e-13 (bank-full), jadi bentuk
+   sklearn yang dipakai agar C sama;
    eigen-dekomposisi kovarians (hanya jalur `covariance_eigh`, ADR 0001); urutkan
    eigenvalue menurun; eigenvalue negatif dipotong ke 0. `explained_variance_` = eigenvalue. `explained_variance_ratio_` =
    eigenvalue / jumlah *semua* min(n, p) eigenvalue sebelum diiris ke k
@@ -42,7 +46,9 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 6. **Tanda** (Klaim 5). Untuk tiap baris `components_`, cari elemen |terbesar|
    (indeks pertama bila seri) dan kalikan baris dengan tandanya (`svd_flip`
    berbasis baris, `extmath.py:848-905`).
-7. **Skor**: (X - mean) @ `components_`.T (sklearn `transform`, whiten=False). Tidak
+7. **Skor**: X @ `components_`.T − mean @ `components_`.T, bentuk sklearn `transform`
+   (`decomposition/_base.py:149, 156`, whiten=False), dipanggil Orange lewat
+   `Orange/projection/base.py:115-116`. Tidak
    punya klaim tersendiri; dibuktikan lewat test skor.
 
 ## Aturan test
@@ -71,7 +77,8 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 
    Skor ruang nol tetap dibandingkan, dengan rtol=0 dan atol=1e-8 (nilainya noise
    ~1e-15, jadi galat relatif tidak bermakna). Aturan yang sama dipakai untuk rasio
-   varians ruang nol (~1e-16).
+   varians ruang nol (~1e-16) dan `explained_variance_` ruang nol (~1e-15, sebagian
+   dipotong ke 0).
 3. **Tanda komponen seri** (disetujui Raditya, 20 Nov 2026). Baris k acuan (Orange)
    disebut seri bila |terbesar| − |kedua terbesar| < 1e-10.
    - Tidak seri: `components_[k]` dan kolom skor ke-k dibandingkan langsung.
@@ -87,7 +94,8 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 - **Komponen seri dari variabel biner.** Continuize mengubah variabel biner jadi `x`
   dan `1-x`; setelah dinormalisasi loading keduanya sama besar beda tanda, sehingga
   `argmax` diputuskan galat ~1e-16. heart_disease: PC2 (`gender`) dan PC3
-  (`fasting blood sugar > 120`); iris: 0 dari 4. Acak urutan baris 20×: tanda PC2
+  (`fasting blood sugar > 120`); iris: 0 dari 4; bank-full: PC2, 4, 6, 7 (di luar
+  ruang nol, terukur 23 Nov 2026). Acak urutan baris 20×: tanda PC2
   terbalik 10×, PC3 2×, di Orange sendiri.
 - **Jalur `randomized`.** Bila min(n, p) ≤ 125, `auto` hanya memilih `covariance_eigh`
   atau `full`, dan `random_state` tidak berpengaruh. Bila min(n, p) ≥ 126, k = 100 <

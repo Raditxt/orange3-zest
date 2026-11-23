@@ -5,7 +5,9 @@ from Orange.data import ContinuousVariable, DiscreteVariable, Domain, Table
 
 import pytest
 
-from pca_compare import compare, compare_ratio, orange_widget_pca, tied_rows, zero_variance_count
+from datasets import load_table
+from pca_compare import (compare, compare_ratio, compare_variance, orange_widget_pca,
+                         tied_rows, zero_variance_count)
 
 
 def test_jumlah_arah_varians_nol_dari_metadata():
@@ -14,11 +16,11 @@ def test_jumlah_arah_varians_nol_dari_metadata():
     assert zero_variance_count(Table("iris")) == 0
 
 
-@pytest.mark.parametrize("dataset", ["iris", "heart_disease"])
+@pytest.mark.parametrize("dataset", ["iris", "heart_disease", "bank-full"])
 def test_jumlah_arah_varians_nol_sama_dengan_terukur(dataset):
     # Rumus hanya batas bawah (aturan uji poin 2); compare() memakainya sebagai
     # jumlah pasti, jadi untuk data yang dipakai harus sama dengan yang terukur.
-    table = Table(dataset)
+    table = load_table(dataset)
     proj, _ = orange_widget_pca(table)
     assert zero_variance_count(table) == int((proj.explained_variance_ < 1e-10).sum())
 
@@ -138,3 +140,14 @@ def test_compare_komponen_seri_tegak_lurus_raise(heart_ref):
     c[1] = 0.0                                             # a . b tepat 0
     with pytest.raises(ValueError, match="PC2"):
         compare(comp, scores, c, scores.copy(), n_null)
+
+
+def test_compare_variance_non_nol_default_ruang_nol_absolut():
+    # Non-nol: np.allclose default (rtol=1e-5, atol=1e-8). Ruang nol: rtol=0, atol=1e-8.
+    ref = np.array([2.0, 1.0, 3e-15, 0.0])
+    rows = compare_variance(np.array([2.00001, 1.0, 0.0, 5e-9]), ref, n_null=2)
+    assert [(r["pc"], r["rtol"], r["atol"], r["allclose"]) for r in rows] == [
+        ("PC1-2", 1e-5, 1e-8, True), ("PC3-4", 0, 1e-8, True)]
+    rows = compare_variance(np.array([2.0001, 1.0, 0.0, 2e-8]), ref, n_null=2)
+    assert [r["allclose"] for r in rows] == [False, False]
+    assert len(compare_variance(ref[:2], ref[:2], n_null=0)) == 1   # tanpa ruang nol
