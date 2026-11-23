@@ -22,12 +22,12 @@ def pca(X, n_components=None):
     n_components=100 (owpca.py:27), jadi untuk meniru widget pada p > 100 pemanggil
     harus mengirim n_components=100.
 
-    Kovarians dihitung sebagai (X.T @ X - n * mean meanᵀ) / (n - 1). Bentuk ini setara
-    matematis dengan Xc.T @ Xc / (n - 1) (Xc = X - mean), tetapi hasil floating-point-nya
-    tidak sama: selisih maksimum terukur 3.1e-14 (iris), 1.7e-14 (heart_disease),
-    2.7e-13 (bank-full), X setelah preprocessor widget Orange. Bentuk sklearn yang
-    dipakai (_pca.py:611-617) supaya matriks C sama dengan milik Orange, karena
-    targetnya identik, bukan sekadar setara.
+    Kovarians dihitung persis seperti sklearn (_pca.py:611-617): C = X.T @ X, lalu
+    C -= (n * mean_kolom) * mean_baris, lalu C /= n - 1. Bentuk ini setara matematis
+    dengan Xc.T @ Xc / (n - 1) (Xc = X - mean), tetapi hasil floating-point-nya tidak
+    sama. Urutan perkalian (n·a)·b juga diikuti: n * outer(mean, mean) = n·(a·b)
+    mengubah digit terakhir C. Bentuk sklearn yang dipakai supaya matriks C sama
+    dengan milik Orange, karena targetnya identik, bukan sekadar setara.
 
     Skor dihitung X @ components.T - mean @ components.T, juga bentuk sklearn
     (decomposition/_base.py:149, 156), yang dipanggil Orange lewat transform
@@ -48,7 +48,7 @@ def pca(X, n_components=None):
 
     mean = X.mean(axis=0)
     C = X.T @ X
-    C -= n * np.outer(mean, mean)
+    C -= n * mean.reshape(-1, 1) * mean.reshape(1, -1)   # (n·a)·b, urutan _pca.py:613-616
     C /= n - 1
     eigenvals, eigenvecs = np.linalg.eigh(C)
     eigenvals = eigenvals[::-1].copy()       # menurun
