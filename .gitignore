@@ -222,3 +222,20 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 *.swp.p
+
+# --- Orange3-Zest ---
+# Konfigurasi lokal Claude Code dan catatan pribadi (link workspace)
+.claude/
+CLAUDE.local.md
+
+# Editor dan OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Dataset mentah tidak disimpan di repo (lihat README, bagian Data bank-full)
+bank-full.csv
+bank-additional*.csv
+bank.csv

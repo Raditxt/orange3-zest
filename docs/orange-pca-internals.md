@@ -192,9 +192,8 @@ Keputusan yang disetujui Raditya (jangan diubah tanpa diskusi):
 1. **Laporan Tahap 1 (BAB I–V)**, ditulis Raditya, dikerjakan di luar repo. Bahan BAB IV:
    tabel di atas dan narasi di akhir notebook 02. Engineer hanya membantu kerangka dan
    cek akurasi teknis.
-2. **Tahap 2: kajian model kandidat** (task Notion "Orange T2: kajian model kandidat +
-   pilih model pertama yang masuk add-on"). Memilih model pertama dari daftar rujukan
-   Prof. Irfan; brief lengkap ada di Catatan task tersebut.
+2. **Tahap 2: kajian model kandidat.** Membandingkan kandidat dari daftar rujukan
+   Prof. Irfan, lalu memilih model pertama yang masuk add-on.
 
 ### Langkah lanjut (di luar Tahap 1)
 
