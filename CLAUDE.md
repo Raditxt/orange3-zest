@@ -4,7 +4,7 @@ Add-on Orange Data Mining supaya model-model dari penelitian (terutama yang belu
 
 ## Tahap sekarang
 
-Tahap 1 adalah proof of concept: PCA NumPy murni yang hasilnya identik 1:1 dengan PCA bawaan Orange, dibuktikan di notebook. Widget PCA TIDAK dibuat. Tahap 2 adalah model pertama dari daftar rujukan Prof. Irfan (Firefly, Komodo Mlipir, Al-Biruni Earth Radius, PSO, extended decision tree), dalam bentuk widget.
+Tahap 1 adalah proof of concept: PCA NumPy murni yang hasilnya identik 1:1 dengan PCA bawaan Orange, dibuktikan di notebook. Widget Zest PCA (task T2a, arahan Prof. Irfan 23 Nov 2026) membungkus `zestcore.pca` dan menjadi template add-on untuk model berikutnya (ExtDT); preprocessing lewat preprocessor Orange (docs/adr/0002-batas-preprocessing.md). Tahap 2 adalah model pertama dari daftar rujukan Prof. Irfan (Firefly, Komodo Mlipir, Al-Biruni Earth Radius, PSO, extended decision tree), dalam bentuk widget.
 
 ## Struktur dua lapis (aturan keras)
 
