@@ -124,6 +124,56 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 
 Bagian ini untuk sesi berikutnya setelah `/clear`: cukup baca ini + CLAUDE.md.
 
+### T2a: widget Zest PCA (handoff 24 Nov 2026)
+
+Task yang sedang jalan. Lingkup dan definisi done ada di brief task T2a (Notion). Desain
+ada di `docs/adr/0003-output-widget-dan-transform.md` (opsi 1c).
+
+Selesai:
+
+- CLAUDE.md "Tahap sekarang" memasukkan widget Zest PCA ke lingkup (`13b2eb2`).
+- ADR 0003 opsi 1c accepted (`f444838`).
+
+Sedang jalan: `/tdd` untuk `zestcore.transform(X, mean, components)`.
+
+- `tests/test_zestcore_transform.py` (Seam A) sudah ditulis dan **merah** karena
+  `ImportError: cannot import name 'transform'`. File ini **belum di-commit**, hanya ada di
+  working tree.
+- Seam A: projector widget di-fit pada baris genap. Baris ganjil jadi data baru dengan
+  referensi `model(test).X`. Input zestcore adalah `test.transform(model.pre_domain).X`,
+  sedangkan `mean_`/`components_` diambil dari `model.proj` di kedua sisi. Penilaian:
+  `np.allclose` default pada seluruh matriks skor, ditambah selisih maksimum. Test ini
+  sengaja tidak memakai `compare()` atau `zero_variance_count`.
+- Sisi referensi sudah dicek tanpa implementasi:
+
+  | dataset | n_latih | p | solver Orange | skor data baru | NaN di X baru |
+  |---|---|---|---|---|---|
+  | iris | 75 | 4 | covariance_eigh | (75, 4) | 0 |
+  | heart_disease | 152 | 25 | full (152 < 10p = 250) | (151, 25) | 0 |
+  | bank-full | 22606 | 51 | covariance_eigh | (22605, 51) | 0 |
+
+- Hal yang perlu diingat: referensi `model(test).X` lewat `Table.transform`. Di bank-full
+  jalur ini pernah berbeda ~1.8e-15 dari `proj.transform` (lihat Pertanyaan terbuka).
+  Selisih maksimum bank yang tidak nol itu wajar, karena jauh di bawah toleransi.
+
+Berikutnya (per langkah, tunggu Raditya di setiap langkah):
+
+1. Implementasi minimal `transform` di `zestcore/pca.py` dengan rumus
+   `X @ C.T - mean @ C.T` → hijau. Laporkan selisih maksimum per dataset.
+2. Seam B: input bentuk (1, p) harus jalan. Input 1-D tidak didukung. `pca()` menolak
+   n < 2, `transform` tidak boleh ikut menolak.
+3. Refactor `pca()` supaya memanggil `transform`, jadi rumusnya ada di satu tempat. Test
+   `test_zestcore_pca.py` harus tetap hijau.
+4. Langkah 4: `ZestPCA(Projector)` + `ZestPCAModel(DomainProjection)` di
+   `orangecontrib/zest/`, lalu `OWZestPCA`. Bentuk objek `proj` (ZestPCA sendiri seperti
+   `LinearProjector`, atau objek kecil terpisah) diputuskan dengan contoh kecil. Untuk
+   test widget dengan data baru, pakai split n_latih ≥ 10p atau iris saja, supaya Orange
+   tetap di jalur covariance_eigh.
+
+Skill yang disarankan: `tdd` untuk langkah 1-3. Untuk langkah 4, `codebase-design` bila
+bentuk objek `proj` perlu kosakata seam/adaptor, dan `domain-modeling` bila ada keputusan
+baru yang layak jadi ADR.
+
 ### Selesai
 
 - **Inti PCA NumPy murni** (`1503b04`). `zestcore/pca.py`: `pca(X, n_components=None)` →
