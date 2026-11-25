@@ -134,7 +134,8 @@ Selesai:
 - CLAUDE.md "Tahap sekarang" memasukkan widget Zest PCA ke lingkup (`13b2eb2`).
 - ADR 0003 opsi 1c accepted (`f444838`).
 
-Sedang jalan: `/tdd` untuk `zestcore.transform(X, mean, components)`.
+Sedang jalan: langkah 4b (widget). Langkah 1-3 (`zestcore.transform`) dan 4a (adaptor)
+selesai.
 
 - Langkah 1 selesai (25 Nov 2026): `transform` di `zestcore/pca.py`, Seam A
   (`tests/test_zestcore_transform.py`) hijau. Selisih maks vs `model(test).X`:
@@ -146,7 +147,31 @@ Sedang jalan: `/tdd` untuk `zestcore.transform(X, mean, components)`.
 - Langkah 3 selesai (25 Nov 2026): `pca()` memanggil `transform`, rumus skor di satu
   tempat. Observasi: `scores` pca sebelum vs sesudah refactor bit-identik di iris,
   heart_disease, bank-full (`n_components=100`). Suite: 52 lulus.
-  Berikutnya langkah 4.
+- Langkah 4a selesai (25 Nov 2026): adaptor `orangecontrib/zest/pca.py`
+  (`ZestPCA(Projector)`, `ZestPCAFit`, `ZestPCAModel(DomainProjection)`), test
+  `tests/test_zest_pca.py`, 8 test. Bentuk proj = objek kecil terpisah `ZestPCAFit`
+  (ADR 0003 Catatan implementasi, bukti `docs/proofs/proj_forms_check.py`). Pembanding:
+  projector widget PCA, `compare()` lengkap. Selisih maks skor (komponen, expl. var,
+  dan rasio 0.0 di semua kasus):
+
+  | seam | dataset | skor |
+  |---|---|---|
+  | 1 data penuh, Normalize ON | iris / heart_disease / bank-full | 5.55e-17 / 8.88e-16 / 1.78e-15 |
+  | 2 Normalize OFF, `ZestPCA(n_components=100)` | iris / heart_disease | 2.78e-17 / 5.68e-14 |
+  | 3 Apply Domain | iris genap→ganjil / heart_disease `[:250]`→`[250:]` | 5.55e-17 / 8.88e-16 |
+  | 4 pickle bolak-balik (domain hasil + model) | iris | 0.0 (`array_equal`) |
+
+  `zero_variance_count` subset latih = terukur (iris 0, heart 7, Normalize ON/OFF).
+  Seam 2-4 langsung hijau karena adaptor sudah lengkap di slice pertama; uji sensitivitas
+  (mutasi sementara di `pca.py`) membuat masing-masing gagal. Temuan:
+  - `Table.transform` memanggil compute_value per potongan 5000 baris
+    (`data/table.py:385`): transform hanya boleh memakai statistik hasil fit (aturan
+    template di ADR 0003).
+  - Skor iris 5.55e-17, bukan 0.0 seperti Seam A: komponen zestcore C-order, sklearn
+    F-order, nilainya sama persis. Dengan salinan F-order selisihnya 0.0. Ini sama dengan
+    keputusan layout memori di bawah, jadi kode tidak diubah.
+
+  Suite: 60 lulus. Berikutnya 4b.
 - Seam A: projector widget di-fit pada baris genap. Baris ganjil jadi data baru dengan
   referensi `model(test).X`. Input zestcore adalah `test.transform(model.pre_domain).X`,
   sedangkan `mean_`/`components_` diambil dari `model.proj` di kedua sisi. Penilaian:
@@ -173,7 +198,7 @@ Berikutnya (per langkah, tunggu Raditya di setiap langkah):
 3. Refactor `pca()` supaya memanggil `transform`, jadi rumusnya ada di satu tempat. Test
    `test_zestcore_pca.py` harus tetap hijau.
 4. Langkah 4, dipecah dua:
-   - **4a. Adaptor tanpa widget**: `ZestPCA(Projector)` + `ZestPCAModel(DomainProjection)`
+   - **4a. Adaptor tanpa widget** (selesai, lihat di atas): `ZestPCA(Projector)` + `ZestPCAModel(DomainProjection)`
      di `orangecontrib/zest/`. Mulai dengan contoh kecil untuk memutuskan bentuk objek
      `proj` (ZestPCA sendiri seperti `LinearProjector`, atau objek kecil terpisah). Lalu
      `/tdd`:

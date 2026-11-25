@@ -161,3 +161,39 @@ Alasan: jalurnya sama dengan OWPCA, jadi perbandingannya setara. Preprocessing d
 statistik data latih ikut terbawa ke data baru tanpa kode tambahan (ADR 0002). Pola tiga
 lapis (zestcore → kelas adaptor Orange → widget tipis) menjadi template untuk ExtDT,
 dengan pasangan Learner/Model menggantikan Projector/DomainProjection.
+
+## Catatan implementasi
+
+Bentuk objek proj (25 Nov 2026, T2a langkah 4a): **objek kecil terpisah** `ZestPCAFit`,
+dibuat baru di setiap `ZestPCA.fit()`. Objek ini membawa `mean_`, `components_`,
+`explained_variance_`, dan `explained_variance_ratio_`. Rasio dibutuhkan widget untuk
+`var.attributes["variance"]` (`owpca.py:325-328`). `transform(X)` memanggil
+`zestcore.transform`. Polanya sama dengan PCA Orange, yang membungkus objek sklearn baru
+(`projection/pca.py:51-53`).
+
+Alternatifnya, `ZestPCA` sendiri sebagai proj (pola `LinearProjector`,
+`projection/base.py:251-259`), ditolak berdasarkan contoh kecil pada iris
+(`docs/proofs/proj_forms_check.py`):
+
+- Model lama berubah saat projector yang sama di-fit ulang. `DomainProjection` menyalin
+  `proj.__dict__` (`projection/base.py:112`), tetapi `transform` tetap memanggil
+  `self.proj.transform` (`:115-116`). Setelah projector di-fit ulang pada `iris[:50]`,
+  `model(iris)` dari fit pertama berubah dengan selisih maks 5.46, dan
+  `model.components_` tidak lagi sama dengan `model.proj.components_`.
+- Pickle domain hasil maupun model gagal (`cannot pickle '_thread._local'`). Salinan
+  `__dict__` itu ikut membawa `_Projector__tls` ke model, sedangkan atribut ini hanya
+  dibuang oleh `Projector.__getstate__` (`:99-102`), bukan oleh `DomainProjection`.
+  Dengan objek terpisah, domain hasil dan model iris bisa di-pickle (2807 byte).
+
+Aturan template: **`transform(X)` hanya memakai statistik hasil fit, tidak pernah
+statistik dari X yang sedang ditransformasi.** `Table.transform`/`from_table` menjalankan
+compute_value per potongan maksimal 5000 baris (`_FromTableConversion.max_rows_at_once`,
+`data/table.py:385`, `423-448`). `compute_shared` (di sini `TransformDomain`) menerima
+potongan baris itu (`data/table.py:303, 316`), bukan seluruh tabel, dan cache dikosongkan
+setelah setiap potongan (`:446-448`). Bukti: `model(table)` pada bank-full (45211 baris)
+memanggil `ZestPCAFit.transform` 10 kali (9 × 5000 + 211 baris), sedangkan iris cukup
+sekali. Uji sensitivitas 4a menunjukkan akibatnya: bila `transform` memakai
+`X.mean(axis=0)`, skor data latih bank-full ikut salah, walaupun tabelnya sama dengan
+data fit, karena setiap potongan memakai mean-nya sendiri. Iris dan heart_disease tetap
+lolos karena hanya satu potongan. Aturan ini juga berlaku untuk model berikutnya (ExtDT)
+dan untuk preprocessor buatan sendiri.

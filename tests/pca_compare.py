@@ -6,13 +6,14 @@ RTOL, ATOL = 1e-5, 1e-8  # np.allclose default = toleransi spec
 TIE_GAP = 1e-10          # aturan uji poin 3
 
 
-def _widget_projector():
-    """Projector widget PCA, setting default (Normalize ON). ncomponents widget hanya
-    mengiris output (Klaim 6), jadi tidak berpengaruh di sini.
+def _widget_projector(normalize=True):
+    """Projector widget PCA; default = setting default widget (Normalize ON).
+    ncomponents widget hanya mengiris output (Klaim 6), jadi tidak berpengaruh di sini.
     OWPCA._create_projector adalah API privat Orange 3.40.0."""
     class Setting:
-        normalize = True
-        ncomponents = 2
+        pass
+    Setting.normalize = normalize
+    Setting.ncomponents = 2
     return OWPCA._create_projector(Setting())
 
 
