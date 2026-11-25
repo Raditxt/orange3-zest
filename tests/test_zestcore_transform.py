@@ -35,3 +35,19 @@ def test_transform_data_baru_sama_dengan_apply_domain(name):
     assert got.shape == ref.shape
     maks = float(np.max(np.abs(got - ref)))
     assert np.allclose(got, ref, rtol=RTOL, atol=ATOL), f"maks {maks:.3g}"
+
+
+@pytest.mark.parametrize("name", ["iris", "heart_disease"])
+def test_transform_satu_baris_data_baru(name):
+    """Seam B: satu baris data baru, bentuk (1, p). pca() menolak n < 2, transform tidak."""
+    table = load_table(name)
+    train, test = table[::2], table[1::2]
+    model = _widget_projector()(train)
+    ref = model(test[:1]).X
+    X_new = test[:1].transform(model.pre_domain).X
+
+    got = transform(X_new, model.proj.mean_, model.proj.components_)
+
+    assert got.shape == ref.shape == (1, len(model.proj.components_))
+    maks = float(np.max(np.abs(got - ref)))
+    assert np.allclose(got, ref, rtol=RTOL, atol=ATOL), f"maks {maks:.3g}"

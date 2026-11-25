@@ -140,6 +140,13 @@ Sedang jalan: `/tdd` untuk `zestcore.transform(X, mean, components)`.
   (`tests/test_zestcore_transform.py`) hijau. Selisih maks vs `model(test).X`:
   iris 0.0, heart_disease 0.0 (keduanya bit-identik), bank-full 3.55e-15
   (np.allclose rtol=1e-5 atol=1e-8 lolos). Suite: 50 lulus.
+- Langkah 2 selesai (25 Nov 2026): Seam B, satu baris data baru `test[:1]` (1, p),
+  iris dan heart_disease. Langsung hijau tanpa ubah kode; selisih maks 0.0 di keduanya.
+  Input 1-D tidak didukung dan tidak diuji.
+- Langkah 3 selesai (25 Nov 2026): `pca()` memanggil `transform`, rumus skor di satu
+  tempat. Observasi: `scores` pca sebelum vs sesudah refactor bit-identik di iris,
+  heart_disease, bank-full (`n_components=100`). Suite: 52 lulus.
+  Berikutnya langkah 4.
 - Seam A: projector widget di-fit pada baris genap. Baris ganjil jadi data baru dengan
   referensi `model(test).X`. Input zestcore adalah `test.transform(model.pre_domain).X`,
   sedangkan `mean_`/`components_` diambil dari `model.proj` di kedua sisi. Penilaian:
@@ -237,6 +244,9 @@ Keputusan yang disetujui Raditya (jangan diubah tanpa diskusi):
   dari `proj.transform(X)` sklearn pada X yang sama (iris, heart_disease: 0.0). Ini
   sumber selisih skor scikit-learn vs Orange di tabel. Belum diselidiki; jauh di bawah
   toleransi.
+- bank-full, Seam A (T2a): `zestcore.transform` berbeda 3.55e-15 dari `model(test).X`
+  (iris, heart_disease: 0.0). Kemungkinan sumbernya sama dengan butir di atas. Belum
+  diselidiki; jauh di bawah toleransi.
 
 ### Task berikutnya
 

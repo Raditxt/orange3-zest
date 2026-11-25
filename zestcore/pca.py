@@ -29,9 +29,9 @@ def pca(X, n_components=None):
     mengubah digit terakhir C. Bentuk sklearn yang dipakai supaya matriks C sama
     dengan milik Orange, karena targetnya identik, bukan sekadar setara.
 
-    Skor dihitung X @ components.T - mean @ components.T, juga bentuk sklearn
-    (decomposition/_base.py:149, 156), yang dipanggil Orange lewat transform
-    (Orange/projection/base.py:115-116).
+    Skor dihitung lewat transform() di bawah: X @ components.T - mean @ components.T,
+    juga bentuk sklearn (decomposition/_base.py:149, 156), yang dipanggil Orange lewat
+    transform (Orange/projection/base.py:115-116).
 
     Tanda: tiap baris components dibalik supaya elemen |terbesar| positif (indeks
     pertama bila seri), sama dengan svd_flip(u_based_decision=False).
@@ -61,8 +61,7 @@ def pca(X, n_components=None):
 
     ratio = eigenvals / eigenvals.sum()      # dibagi semua eigenvalue, sebelum diiris
     components = components[:k]
-    scores = X @ components.T
-    scores -= mean @ components.T
+    scores = transform(X, mean, components)
     return PCAResult(mean, components, eigenvals[:k], ratio[:k], scores)
 
 
