@@ -136,9 +136,10 @@ Selesai:
 
 Sedang jalan: `/tdd` untuk `zestcore.transform(X, mean, components)`.
 
-- `tests/test_zestcore_transform.py` (Seam A) sudah ditulis dan **merah** karena
-  `ImportError: cannot import name 'transform'`. File ini **belum di-commit**, hanya ada di
-  working tree.
+- Langkah 1 selesai (25 Nov 2026): `transform` di `zestcore/pca.py`, Seam A
+  (`tests/test_zestcore_transform.py`) hijau. Selisih maks vs `model(test).X`:
+  iris 0.0, heart_disease 0.0 (keduanya bit-identik), bank-full 3.55e-15
+  (np.allclose rtol=1e-5 atol=1e-8 lolos). Suite: 50 lulus.
 - Seam A: projector widget di-fit pada baris genap. Baris ganjil jadi data baru dengan
   referensi `model(test).X`. Input zestcore adalah `test.transform(model.pre_domain).X`,
   sedangkan `mean_`/`components_` diambil dari `model.proj` di kedua sisi. Penilaian:
@@ -239,11 +240,9 @@ Keputusan yang disetujui Raditya (jangan diubah tanpa diskusi):
 
 ### Task berikutnya
 
-1. **Laporan Tahap 1 (BAB I–V)**, ditulis Raditya, dikerjakan di luar repo. Bahan BAB IV:
-   tabel di atas dan narasi di akhir notebook 02. Engineer hanya membantu kerangka dan
-   cek akurasi teknis.
-2. **Tahap 2: kajian model kandidat.** Membandingkan kandidat dari daftar rujukan
-   Prof. Irfan, lalu memilih model pertama yang masuk add-on.
+1. **T2a: widget Zest PCA** (sedang jalan). Lihat bagian T2a di atas.
+2. **Widget ExtDT** (extended decision tree), model pertama Tahap 2, arahan Prof. Irfan
+   23 Nov 2026. Memakai template T2a (pola tiga lapis, ADR 0003).
 
 ### Langkah lanjut (di luar Tahap 1)
 

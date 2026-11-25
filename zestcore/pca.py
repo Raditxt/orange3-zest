@@ -64,3 +64,13 @@ def pca(X, n_components=None):
     scores = X @ components.T
     scores -= mean @ components.T
     return PCAResult(mean, components, eigenvals[:k], ratio[:k], scores)
+
+
+def transform(X, mean, components):
+    """Proyeksikan X (n x p, sudah diproses dengan statistik latih) ke komponen hasil
+    pca(): X @ components.T - mean @ components.T, bentuk sklearn
+    (decomposition/_base.py:149, 156). Dipakai untuk data baru (ADR 0003)."""
+    X = np.asarray(X, dtype=float)
+    scores = X @ components.T
+    scores -= mean @ components.T
+    return scores
