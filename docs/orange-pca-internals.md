@@ -135,7 +135,8 @@ Selesai:
 - ADR 0003 opsi 1c accepted (`f444838`).
 
 Sedang jalan: langkah 4b (widget). Langkah 1-3 (`zestcore.transform`) dan 4a (adaptor)
-selesai.
+selesai. Rancangan 4b disetujui 25 Nov 2026 (bagian "Rancangan OWZestPCA" di bawah);
+`/tdd` dilanjut Jumat 27 Nov 2026.
 
 - Langkah 1 selesai (25 Nov 2026): `transform` di `zestcore/pca.py`, Seam A
   (`tests/test_zestcore_transform.py`) hijau. Selisih maks vs `model(test).X`:
@@ -209,7 +210,67 @@ Berikutnya (per langkah, tunggu Raditya di setiap langkah):
      - Normalize OFF.
    - **4b. Widget**: `OWZestPCA` + `WidgetTest`. Warning ADR 0001 dari `zestcore.pca`
      (bentuk di luar p ≤ 1000 dan n ≥ 10p) ditampilkan sebagai `Msg` widget. Ikon dan
-     kategori widget.
+     kategori widget. Rancangan disetujui 25 Nov 2026 (lihat di bawah); `/tdd` belum
+     dimulai, lanjut Jumat 27 Nov 2026.
+
+#### Rancangan OWZestPCA (4b, disetujui 25 Nov 2026)
+
+File:
+
+- `orangecontrib/zest/widgets/owzestpca.py`: widget.
+- `orangecontrib/zest/widgets/icons/ZestPCA.svg` (ikon widget, beda dari `PCA.svg`
+  Orange) dan `icons/category.svg` (ikon kategori).
+- `orangecontrib/zest/widgets/__init__.py`: metadata kategori `NAME = "Zest"`,
+  `DESCRIPTION`, `BACKGROUND`, `ICON`.
+- `pyproject.toml`: `[tool.setuptools.package-data]` untuk `icons/*.svg`. Instalasi
+  editable jalan tanpa ini, wheel/non-editable tidak.
+- `tests/test_owzestpca.py`: `WidgetTest`.
+
+Inputs/Outputs:
+
+- Input `Data` (Table).
+- Output `Transformed Data` dan `Components` (`dynamic=False`), meniru
+  `owpca.py:316-355`. Transformed Data = `model(data)` diiris ke `ncomponents` atribut
+  pertama, kelas dan meta asli ikut, tiap PC diberi
+  `var.attributes["variance"] = round(ratio, 6)`. Components = baris
+  `components_[:ncomponents]`, kolom = nama atribut `orig_domain` dengan
+  `compute_value=lambda _: None`, meta `components` (PC1..) dan `variance`.
+
+Settings: `ncomponents = Setting(2)` (spin 1-100, default sama dengan OWPCA) dan
+`normalize = Setting(True)`.
+
+Di luar lingkup (dicatat di README): scree plot, spin explained variance, output `Data`,
+output `PCA` (projector), tombol auto-apply.
+
+Alur:
+
+- Data atau `normalize` berubah → fit:
+  `ZestPCA(n_components=100, preprocessors=ZestPCA.preprocessors + [Normalize(center=False)]
+  bila dicentang)` (`owpca.py:278-282`), lalu `model = projector(data)` dan
+  `transformed = model(data)` (jalur compute_value, `owpca.py:321`). Keduanya di dalam
+  `warnings.catch_warnings(record=True)`.
+- `ncomponents` berubah → hanya mengiris ulang hasil yang sudah ada, tanpa fit ulang.
+
+Keputusan Raditya (25 Nov 2026):
+
+1. **`ShapeWarning(UserWarning)` di `zestcore/pca.py`**, dipakai sebagai kategori
+   `warnings.warn` ADR 0001. Widget hanya menangkap `ShapeWarning` dan meneruskan
+   pesannya apa adanya lewat `Warning.shape_outside_spec = Msg("{}")`. Alternatif
+   (menyaring `UserWarning` lewat teks pesan) ditolak karena rapuh bila teks berubah.
+2. **`Error.fit_failed = Msg("{}")`** menangkap `ValueError` (misalnya zestcore menolak
+   n < 2) dan membersihkan output. Tidak meniru `no_features`/`no_instances` OWPCA.
+3. **Tanpa nilai "All"** di spin komponen. `ncomponents` > k memberi k komponen lewat
+   irisan biasa.
+
+Fit **sinkron**, tanpa `ConcurrentWidgetMixin` (disetujui). Alasan: `catch_warnings`
+mengubah state global sehingga tidak aman di thread, dan kodenya lebih sederhana; fit
+bank-full hanya eigh 51×51. **Bagian ini bukan template untuk disalin:** widget learner
+(ExtDT) mungkin tetap butuh `ConcurrentWidgetMixin` bila fit-nya lama.
+
+Seam `/tdd` yang diminta Raditya (diusulkan rinci saat sesi dimulai): output widget Zest
+vs OWPCA untuk data yang sama (Transformed Data, Components, variance), irisan jumlah
+komponen, Normalize OFF, `Msg` warning pada `heart_disease[:100]`, input `None`
+membersihkan output. Bukti GUI (`.ows`/screenshot) dikerjakan Raditya.
 
 Skill yang disarankan: `tdd` untuk langkah 1-3. Untuk langkah 4, `codebase-design` bila
 bentuk objek `proj` perlu kosakata seam/adaptor, dan `domain-modeling` bila ada keputusan
