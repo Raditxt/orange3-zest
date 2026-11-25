@@ -172,11 +172,19 @@ Berikutnya (per langkah, tunggu Raditya di setiap langkah):
    n < 2, `transform` tidak boleh ikut menolak.
 3. Refactor `pca()` supaya memanggil `transform`, jadi rumusnya ada di satu tempat. Test
    `test_zestcore_pca.py` harus tetap hijau.
-4. Langkah 4: `ZestPCA(Projector)` + `ZestPCAModel(DomainProjection)` di
-   `orangecontrib/zest/`, lalu `OWZestPCA`. Bentuk objek `proj` (ZestPCA sendiri seperti
-   `LinearProjector`, atau objek kecil terpisah) diputuskan dengan contoh kecil. Untuk
-   test widget dengan data baru, pakai split n_latih ≥ 10p atau iris saja, supaya Orange
-   tetap di jalur covariance_eigh.
+4. Langkah 4, dipecah dua:
+   - **4a. Adaptor tanpa widget**: `ZestPCA(Projector)` + `ZestPCAModel(DomainProjection)`
+     di `orangecontrib/zest/`. Mulai dengan contoh kecil untuk memutuskan bentuk objek
+     `proj` (ZestPCA sendiri seperti `LinearProjector`, atau objek kecil terpisah). Lalu
+     `/tdd`:
+     - data penuh vs OWPCA dengan `compare()` lengkap;
+     - Apply Domain (data baru): iris dengan split genap/ganjil, atau heart_disease
+       dengan n_latih ≥ 250 (10p, p = 25), supaya Orange tetap di jalur covariance_eigh;
+     - pickle bolak-balik (domain hasil dan model);
+     - Normalize OFF.
+   - **4b. Widget**: `OWZestPCA` + `WidgetTest`. Warning ADR 0001 dari `zestcore.pca`
+     (bentuk di luar p ≤ 1000 dan n ≥ 10p) ditampilkan sebagai `Msg` widget. Ikon dan
+     kategori widget.
 
 Skill yang disarankan: `tdd` untuk langkah 1-3. Untuk langkah 4, `codebase-design` bila
 bentuk objek `proj` perlu kosakata seam/adaptor, dan `domain-modeling` bila ada keputusan
