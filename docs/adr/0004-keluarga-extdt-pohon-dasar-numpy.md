@@ -300,22 +300,60 @@ bisa ditambahkan di opsi apa pun dan murah.
 
 **Belum terverifikasi / perlu diperhatikan**
 
-- `docs/research/extdt-kandidat-rujukan.md` (riset 5 kandidat), yang disebut di brief,
-  **tidak ada di repo** (tidak ada di branch, stash, maupun disk). Tabel di Pertanyaan 2
-  dan klaim tentang paper ditulis dari pengetahuan umum, bukan dari file itu, dan perlu
-  dicocokkan setelah file riset di-commit:
-  - Skor 2I/(Hs+Hc) dan agregasi voting mayoritas di Geurts 2006.
-  - Aturan threshold C4.5 (nilai data terbesar ≤ titik tengah).
-  - Bobot pecahan pada UDT.
-  - Entropi multi-label (Clare & King 2001).
+- Klaim tentang paper di ADR ini awalnya ditulis dari pengetahuan umum, karena file riset
+  belum ada saat draf dibuat. Pencocokan dengan `docs/research/extdt-kandidat-rujukan.md`
+  (commit e312660) ada di bagian "Pencocokan klaim paper" di bawah. Opsi dan rekomendasi
+  tidak diubah.
 - Nama kanonik: ExtDT, Extension DT, Extra Trees (lihat catatan istilah). Belum ada
   `GLOSSARY.md`. Dibuat setelah nama ditetapkan.
+
+### Pencocokan klaim paper dengan file riset (26 Nov 2026)
+
+Arti label:
+
+- **cocok**: isinya sama dengan file riset, dan file riset tidak menandainya
+  [belum terverifikasi].
+- **berbeda**: file riset menyatakan hal lain.
+- **belum terverifikasi**: file riset tidak membahasnya, atau menandainya
+  [belum terverifikasi].
+
+File riset sendiri bukan sumber primer, jadi label "cocok" berarti sesuai dengan file
+riset, bukan sudah dicek langsung ke PDF.
+
+| No | Klaim di ADR 0004 (lokasi) | Isi file riset | Status |
+|---|---|---|---|
+| 1 | Skor Extra Trees di Geurts 2006 = 2I/(Hs+Hc), tidak ada di sklearn (Konteks, 1b, 1c, tabel P2) | Bagian A: paper memakai normalized information gain 2·I/(H_s+H_c), sklearn gini/entropy/log_loss | **cocok** |
+| 2 | Geurts 2006 memakai voting mayoritas, sklearn rata-rata probabilitas (3b) | Tidak dibahas sama sekali | **belum terverifikasi**: tetap harus dicek ke PDF Geurts |
+| 3 | Threshold C4.5 = nilai data terbesar ≤ titik tengah (tabel P2) | Bagian D hanya menyebut gain ratio, missing fraksional, pruning CF=0,25, subtree raising, dan koreksi MDL. Aturan threshold tidak disebut | **belum terverifikasi**. Yang **cocok** dengan tabel P2: gain ratio, bobot untuk missing pecahan, dan pruning |
+| 4 | UDT butuh bobot baris (tuple pecahan), entropi berbobot, threshold exhaustive atas titik pdf (tabel P2) | Bagian C: UDT mencari split atas interval pdf (s=100 titik sampel). Ekspansi `sample_weight` disebut "hanya aproksimasi, bukan pencarian split ala UDT (inferensi)". Tuple pecahan tidak disebut | **berbeda sebagian**: pencarian split atas pdf cocok, tetapi file riset menyatakan bobot baris saja tidak cukup untuk UDT. Tuple pecahan **belum terverifikasi** |
+| 5 | Multi-label: entropi multi-label (Clare & King 2001), target n × L, daun = frekuensi per label (tabel P2, P2 poin "Bentuk target") | Bagian E: entropi −Σ[p log p + q log q] dan daun berisi **himpunan label**. Gain vs gain ratio dan aturan pelabelan daun **[belum terverifikasi]** | Entropi **cocok**. Isi daun **berbeda**: paper menyebut himpunan label, ADR menyebut frekuensi per label. Aturan pelabelan daun **belum terverifikasi** |
+
+Temuan lain dari file riset yang menyentuh teks ADR. Ini dicatat saja, teks opsinya
+tidak diubah.
+
+- **1b** menulis bahwa membungkus sklearn tidak memberi bagian yang bisa dipakai ulang
+  oleh multi-label. Menurut bagian E, `DecisionTreeClassifier` dengan y 2-D dan
+  `criterion="entropy"` memberi impurity yang setara dengan entropi ML-C4.5 dibagi L.
+  Artinya sklearn tetap bisa jadi pembanding parsial untuk multi-label.
+  - Uji 298/300 di file riset dijalankan dengan sklearn 1.9.1, bukan 1.5.2.
+  - Uji itu juga belum dipublikasikan.
+- **Tabel P2, Extra Trees, "split diskret multiway: opsional".** Menurut bagian A, paper
+  memakai split subset acak (dua cabang) untuk atribut nominal, bukan multiway.
+- **Tabel P2, Extension DT, semua "?".** Bagian B: model matter-element, diskretisasi dengan
+  dependent function, lalu pohon ID3 (information gain), lalu extension transform pada
+  aturan. Tidak ada kode, dataset publik, atau angka akurasi.
+- **Pembulatan K.** sklearn memakai floor, paper "rounded" (bagian A, ditandai
+  [belum terverifikasi]). Ini relevan untuk 3b, karena `max_features` harus disamakan.
+- **Multi-target di adapter.** Bagian E: `TreeLearner`/`SklTreeLearner` tidak
+  menyetel `supports_multiclass`, sehingga data multi-target memicu `TypeError`. Adapter
+  multi-label butuh `supports_multiclass = True`.
 
 **Langkah berikutnya (urutan usulan, jadwal diatur PM)**
 
 1. Raditya memilih opsi untuk Pertanyaan 1-5, lalu menulisnya di bagian Keputusan dan
    mengubah status menjadi `accepted`.
-2. Commit file riset kandidat, lalu cocokkan tabel Pertanyaan 2.
+2. Cek ke PDF klaim yang masih belum terverifikasi: agregasi Geurts (no. 2), threshold
+   C4.5 (no. 3), tuple pecahan UDT (no. 4), dan isi daun ML-C4.5 (no. 5).
 3. Tulis kriteria "setara" (3b) sebelum eksperimen.
 4. Pecah pilot menjadi task implementasi: contoh kecil fungsi skor di iris (3a), lalu
    pohon tunggal, ensemble, adapter, dan widget.
