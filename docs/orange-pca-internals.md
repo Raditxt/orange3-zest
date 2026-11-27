@@ -134,8 +134,11 @@ Selesai:
 - CLAUDE.md "Tahap sekarang" memasukkan widget Zest PCA ke lingkup (`13b2eb2`).
 - ADR 0003 opsi 1c accepted (`f444838`).
 
-Kode T2a selesai (langkah 1-4b), test dan lint hijau. Yang tersisa: **bukti GUI oleh
-Raditya** (langkah di bawah), lalu README (output di luar lingkup, cara pasang).
+**T2a selesai (27 Nov 2026).** Kode (langkah 1-4b), review sejak `cc0feb3` (test p = 0
+dan penjaga `commit()`, aturan ruff), bukti GUI heart_disease oleh Raditya, dan README
+(cara pasang, klaim, batas ADR 0001, keterbatasan). Commit `076645f`..`5c86b9d`, CI
+`5c86b9d` hijau: 62 lulus, 9 skip (bank-full); lokal 71 lulus. Lint `ruff check .`
+bersih.
 
 - Langkah 4b selesai (27 Nov 2026): widget `OWZestPCA`, 6 siklus `/tdd`, satu commit per
   siklus (`9391049`..`85f12c9`). File: `orangecontrib/zest/widgets/owzestpca.py`,
@@ -439,8 +442,9 @@ Keputusan yang disetujui Raditya (jangan diubah tanpa diskusi):
 
 ### Task berikutnya
 
-1. **T2a: widget Zest PCA** (kode selesai 27 Nov 2026; tersisa bukti GUI dan README).
-   Lihat bagian T2a di atas.
+1. ~~**T2a: widget Zest PCA**~~ selesai 27 Nov 2026 (lihat bagian T2a di atas).
+   Lanjutan yang tercatat: scree plot, pesan error yang lebih jelas, dan rasio `nan`
+   pada data konstan.
 2. **Widget ExtDT** (extended decision tree), model pertama Tahap 2, arahan Prof. Irfan
    23 Nov 2026. Memakai template T2a (pola tiga lapis, ADR 0003).
 
