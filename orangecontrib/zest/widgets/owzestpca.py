@@ -19,7 +19,10 @@ MAX_COMPONENTS = 100  # sama dengan OWPCA (owpca.py:27)
 
 class OWZestPCA(OWWidget):
     name = "Zest PCA"
-    description = "PCA NumPy murni (zestcore), hasilnya identik dengan widget PCA Orange."
+    description = (
+        "PCA NumPy murni (zestcore), hasilnya identik dengan widget PCA Orange "
+        "dalam toleransi spec, untuk X yang diproses preprocessor Orange."
+    )
     keywords = "pca, principal component analysis, zest"
     icon = "icons/ZestPCA.svg"
 
