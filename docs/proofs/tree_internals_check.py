@@ -9,7 +9,6 @@ docs/orange-tree-internals.md. Data: iris (klasifikasi, numerik murni) dan
 heart_disease (klasifikasi campuran diskret/numerik dengan NaN; juga dipakai
 untuk regresi dengan target "max HR").
 """
-import itertools
 
 import numpy as np
 
@@ -18,7 +17,7 @@ from Orange.data import Table, Domain, DiscreteVariable
 from Orange.modelling.tree import TreeLearner
 from Orange.classification.tree import TreeLearner as ClsTreeLearner
 from Orange.regression.tree import TreeLearner as RegTreeLearner
-from Orange.tree import Node, DiscreteNode, MappedDiscreteNode, NumericNode, TreeModel
+from Orange.tree import DiscreteNode, MappedDiscreteNode, NumericNode, TreeModel
 from Orange.widgets.model.owtree import OWTreeLearner
 
 IRIS = Table("iris")
