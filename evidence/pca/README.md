@@ -81,7 +81,7 @@ Orange dan sekali dengan Zest PCA. Setting, hasil, dan jawabannya ada di
 | `heart_pca_orange_workflow.png`, `heart_pca_zest_workflow.png` | kanvas kedua workflow |
 | `heart_pca_orange_scatter.png`, `heart_pca_zest_scatter.png` | Scatter Plot PC1 × PC2, warna `diameter narrowing` |
 | `heart_pca_zest_testscore.png` | Test and Score cabang Zest: 2 PC (AUC 0.900, CA 0.818) dan kolom asli (AUC 0.909, CA 0.845) |
-| `heart_zestpca_warning.png` | Zest PCA (1) pada 100 baris (100 × 25, n < 10p) dengan ikon warning ADR 0001 |
+| `heart_zestpca_warning.png` | jendela Zest PCA (1) pada 100 baris (100 × 25, n < 10p): teks warning ADR 0001 di status bar bawah, output 100 \| 2; ikon warning di node kanvas |
 | `zest_category.png` | kategori Zest di panel widget Orange |
 
 Bukti presisi penuh adalah `.pkl` dan `.npy`. CSV tidak dibuat untuk T2a. Jalankan dari
@@ -93,8 +93,10 @@ D:\Orange\python.exe evidence\pca\compare_zest_gui.py
 ```
 
 Di `heart_pca_zest_testscore.png` dan `heart_pca_zest_scatter.png` pojok kanan atas
-ditutup kotak putih. Area itu berisi jendela aplikasi lain yang ikut terekam, bukan
-bagian dari Orange. Isi jendela Orange tidak diubah.
+ditutup kotak putih. Di `heart_zestpca_warning.png` kotak putih menutup area di atas,
+kanan, dan bawah jendela Zest PCA (1) (pojok kanan atas dan kanan bawah gambar).
+Area itu berisi jendela aplikasi lain yang ikut terekam, bukan bagian dari Orange. Isi
+jendela Orange tidak diubah.
 
 Path `np.save` di Python Script `heart_pca_zest.ows` absolut (folder repo di mesin
 perekaman). Sesuaikan bila workflow dibuka di mesin lain.
