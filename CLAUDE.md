@@ -1,41 +1,47 @@
 # Orange3-Zest
 
-Add-on Orange Data Mining supaya model-model dari penelitian (terutama yang belum ada di Orange, misalnya metaheuristik) bisa dipakai pengguna awam lewat widget. Proyek magang Raditya dengan pembimbing Prof. Irfan. Repo publik, lisensi GPL-3.0.
+An Orange Data Mining add-on that lets non-expert users run research models (especially ones Orange does not have yet, such as metaheuristics) through widgets. Internship project of Raditya, supervised by Prof. Irfan. Public repo, licensed under GPL-3.0.
 
-## Tahap sekarang
+## Current stage
 
-Tahap 1 adalah proof of concept: PCA NumPy murni yang hasilnya identik 1:1 dengan PCA bawaan Orange, dibuktikan di notebook. Widget Zest PCA (task T2a, arahan Prof. Irfan 23 Nov 2026) membungkus `zestcore.pca` dan menjadi template add-on untuk model berikutnya (ExtDT); preprocessing lewat preprocessor Orange (docs/adr/0002-batas-preprocessing.md). Tahap 2 adalah model pertama dari daftar rujukan Prof. Irfan (Firefly, Komodo Mlipir, Al-Biruni Earth Radius, PSO, extended decision tree), dalam bentuk widget.
+Stage 1 is a proof of concept: a pure-NumPy PCA whose results match Orange's built-in PCA 1:1, demonstrated in notebooks. The Zest PCA widget (task T2a, Prof. Irfan's direction of 23 Nov 2026) wraps `zestcore.pca` and serves as the add-on template for the next model (ExtDT); preprocessing goes through Orange preprocessors (docs/adr/0002-batas-preprocessing.md). Stage 2 is the first model from Prof. Irfan's reference list (Firefly, Komodo Mlipir, Al-Biruni Earth Radius, PSO, extended decision tree), delivered as a widget.
 
-## Struktur dua lapis (aturan keras)
+## Two-layer structure (hard rule)
 
-- `zestcore/`: inti algoritma, NumPy murni. DILARANG `import Orange` atau `import sklearn` di sini.
-- `orangecontrib/zest/`: lapis widget Orange, hanya membungkus `zestcore`. `orangecontrib/` adalah namespace package, jangan tambahkan `__init__.py` langsung di dalamnya.
-- `tests/`: pytest. scikit-learn dan Orange boleh dipakai di sini sebagai pembanding.
-- `notebooks/`, `docs/`, `evidence/` (CSV + .ows dari GUI Orange).
-- Spesifikasi PCA: docs/orange-pca-internals.md; keputusan desain: docs/adr/.
+- `zestcore/`: algorithm core, pure NumPy. `import Orange` and `import sklearn` are FORBIDDEN here.
+- `orangecontrib/zest/`: Orange widget layer, only wraps `zestcore`. `orangecontrib/` is a namespace package; do not add an `__init__.py` directly inside it.
+- `tests/`: pytest. scikit-learn and Orange may be used here as references.
+- `notebooks/`, `docs/`, `evidence/` (CSV + .ows from the Orange GUI).
+- PCA specification: docs/orange-pca-internals.md; design decisions: docs/adr/.
 
-## Lingkungan
+## Environment
 
-Semua pekerjaan dijalankan dengan Python bawaan Orange supaya angkanya identik dengan GUI:
+All work runs on Orange's bundled Python so the numbers match the GUI:
 
 - Interpreter: `D:\Orange\python.exe`
 - Python 3.12.12, Orange 3.40.0, scikit-learn 1.5.2, NumPy 2.1.3
-- Kode sumber Orange yang terpasang: `D:\Orange\Lib\site-packages\Orange\`
+- Installed Orange source: `D:\Orange\Lib\site-packages\Orange\`
 - Shell: PowerShell (Windows)
 
-Rujuk kode sumber dari versi yang terpasang di atas, bukan dari ingatan atau branch master GitHub.
+Refer to the source of the installed version above, not to memory or the GitHub master branch.
 
-## Prinsip teknis
+## Technical principles
 
-- "Identik" harus dibuktikan dengan angka: `np.allclose` plus selisih maksimum yang dilaporkan. Selalu sebutkan dibanding apa, toleransinya berapa, dan setting-nya apa.
-- Tanda komponen PCA bisa terbalik antar implementasi. Pakai konvensi tanda yang deterministik dan tulis di dokumentasi.
-- Kalau ternyata tidak bisa identik, itu temuan yang sah. Jelaskan penyebabnya, jangan disembunyikan atau ditutupi dengan toleransi longgar.
-- Sederhana dulu: perubahan kecil, setiap langkah bisa dicek, tanpa abstraksi yang belum dibutuhkan.
+- "Identical" must be proven with numbers: `np.allclose` plus the reported maximum difference. Always state what is compared against, the tolerance, and the settings.
+- PCA component signs can flip between implementations. Use a deterministic sign convention and document it.
+- If results turn out not to be identical, that is a valid finding. Explain the cause; do not hide it or cover it with a loose tolerance.
+- Simple first: small changes, every step checkable, no abstractions before they are needed.
 
-## Cara bekerja dengan Raditya
+## Language
 
-- Raditya menargetkan pembagian kerja 50:50 dengan AI, dan harus paham serta bisa mempertanggungjawabkan setiap baris kode di depan pembimbing.
-- Sebelum menulis kode, jelaskan dulu pendekatannya secara singkat. Untuk materi baru (SVD, PCA, arsitektur widget Orange), beri contoh kecil yang bisa langsung dijalankan.
-- Kerjakan per langkah kecil. Setelah setiap langkah, jelaskan apa yang berubah dan kenapa, lalu tunggu Raditya sebelum lanjut.
-- Laporan magang (BAB I–V) ditulis Raditya sendiri. Boleh membantu menyusun kerangka dan mengecek akurasi teknis, tapi jangan menulis laporannya secara utuh.
-- Bahasa: Indonesia, lugas.
+- Repo documentation (all `.md` files, including this one) and commit messages: English.
+- Conversation with Raditya: Indonesian, plain and direct.
+- Text shown in the Orange GUI (widget description, Warning/Error messages, `ShapeWarning` text) stays Indonesian for now; changing it invalidates the GUI screenshots in `evidence/`.
+- `LICENSE` is the official GPL-3.0 text from the FSF, unmodified and untranslated.
+
+## Working with Raditya
+
+- Raditya aims for a 50:50 split of work with AI, and must understand and be able to defend every line of code in front of the supervisor.
+- Before writing code, briefly explain the approach. For new material (SVD, PCA, Orange widget architecture), give a small example that can be run directly.
+- Work in small steps. After each step, explain what changed and why, then wait for Raditya before continuing.
+- The internship report (chapters I–V) is written by Raditya. Helping with the outline and checking technical accuracy is fine, but do not write the report in full.
