@@ -2,125 +2,128 @@
 
 [![tests](https://github.com/Raditxt/orange3-zest/actions/workflows/tests.yml/badge.svg)](https://github.com/Raditxt/orange3-zest/actions/workflows/tests.yml)
 
-Add-on [Orange Data Mining](https://orangedatamining.com/) yang membawa model-model dari
-penelitian, terutama yang belum ada di Orange (misalnya algoritma metaheuristik), ke dalam
-widget supaya bisa dipakai tanpa menulis kode.
+An [Orange Data Mining](https://orangedatamining.com/) add-on that brings research
+models, especially ones Orange does not have yet (such as metaheuristic algorithms), into
+widgets so they can be used without writing code.
 
-Proyek magang, dikerjakan bersama asisten AI (Claude Code). Instruksi kerja untuk AI ada
-di [`CLAUDE.md`](CLAUDE.md).
+Internship project, developed together with an AI assistant (Claude Code). Working
+instructions for the AI are in [`CLAUDE.md`](CLAUDE.md).
 
 ## Status
 
-| Tahap | Isi | Status |
+| Stage | Scope | Status |
 |---|---|---|
-| 1 | Proof of concept: PCA NumPy murni yang hasilnya identik dengan PCA bawaan Orange | Selesai |
-| 2 | Model pertama dari daftar rujukan (kandidat: Firefly, Komodo Mlipir, Al-Biruni Earth Radius, PSO, extended decision tree), dalam bentuk widget | Kajian kandidat |
+| 1 | Proof of concept: a pure-NumPy PCA whose results are identical to Orange's built-in PCA | Done |
+| 2 | First model from the reference list (candidates: Firefly, Komodo Mlipir, Al-Biruni Earth Radius, PSO, extended decision tree), as a widget | Reviewing candidates |
 
-Tahap 1 menulis ulang PCA, yang sebenarnya sudah ada di Orange. Tujuannya membuktikan
-bahwa algoritma bisa ditulis ulang di luar Orange dan hasilnya dapat dibuktikan sama,
-sebelum masuk ke model yang belum ada di Orange. Hasilnya dibungkus menjadi widget
-**Zest PCA**, yang juga menjadi template untuk widget model berikutnya.
+Stage 1 reimplements PCA, which Orange already has. The goal is to show that an
+algorithm can be rewritten outside Orange and its results proven to be the same, before
+moving on to models Orange does not have. The result is wrapped as the **Zest PCA**
+widget, which also serves as the template for the next model widgets.
 
-## Memasang add-on
+## Installing the add-on
 
-Add-on belum ada di PyPI. Pasang dari folder repo ke **Python bawaan Orange** (sesuaikan
-`D:\Orange` dengan lokasi instalasi Orange):
+The add-on is not on PyPI yet. Install it from the repo folder into **Orange's bundled
+Python** (replace `D:\Orange` with your Orange installation folder):
 
 ```powershell
 D:\Orange\python.exe -m pip install -e .
 ```
 
-Tutup lalu buka lagi Orange. Di panel widget muncul kategori **Zest** berisi **Zest PCA**
-(screenshot: [`evidence/pca/zest_category.png`](evidence/pca/zest_category.png)).
+Close and reopen Orange. The widget panel shows a **Zest** category containing **Zest
+PCA** (screenshot: [`evidence/pca/zest_category.png`](evidence/pca/zest_category.png)).
 
-## Widget Zest PCA
+## Zest PCA widget
 
-Membungkus `zestcore.pca` (NumPy murni) dengan input dan output yang sama dengan widget
-PCA Orange:
+Wraps `zestcore.pca` (pure NumPy) with the same inputs and outputs as Orange's PCA
+widget:
 
 - Input `Data`.
-- Output `Transformed Data`: skor PC1..PCk, dengan kelas dan meta asli ikut dibawa. Tiap PC
-  membawa rasio variansnya. Domain hasil bisa dipakai Apply Domain untuk data baru.
-- Output `Components`: satu baris per komponen, satu kolom per fitur, ditambah meta
-  `components` dan `variance`.
-- Setting: Components (1-100, default 2) dan Normalize variables (default ON).
-  Preprocessing (imputasi, Continuize, Normalize) dikerjakan preprocessor Orange, sama
-  dengan widget PCA ([ADR 0002](docs/adr/0002-batas-preprocessing.md),
+- Output `Transformed Data`: scores PC1..PCk, carrying over the original class and metas.
+  Each PC carries its variance ratio. The output domain can be used by Apply Domain for
+  new data.
+- Output `Components`: one row per component, one column per feature, plus the metas
+  `components` and `variance`.
+- Settings: Components (1-100, default 2) and Normalize variables (default ON).
+  Preprocessing (imputation, Continuize, Normalize) is done by Orange preprocessors, the
+  same as in the PCA widget ([ADR 0002](docs/adr/0002-batas-preprocessing.md),
   [ADR 0003](docs/adr/0003-output-widget-dan-transform.md)).
 
-**Klaim:** hasil Zest PCA identik dengan PCA Orange 3.40.0 **dalam toleransi spec**
-(`np.allclose`, rtol=1e-5, atol=1e-8; aturan komponen seri dan ruang nol di
-[spesifikasi](docs/orange-pca-internals.md#aturan-test)) **untuk X yang diproses
-preprocessor Orange**. Klaim ini diuji di `tests/test_owzestpca.py` (widget vs widget)
-dan dibuktikan di GUI pada kasus heart_disease. Selisih maks skor 8.88e-16, komponen
-25 × 25 dan skor 303 × 25, lihat
-[`evidence/pca/`](evidence/pca/README.md#bukti-gui-t2a-zest-pca-vs-pca-orange-heart_disease-27-nov-2026).
+**Claim:** Zest PCA results are identical to Orange 3.40.0 PCA **within the spec
+tolerance** (`np.allclose`, rtol=1e-5, atol=1e-8; rules for tied components and the null
+space in the [specification](docs/orange-pca-internals.md#aturan-test)) **for X processed
+by Orange preprocessors**. The claim is tested in `tests/test_owzestpca.py` (widget vs
+widget) and demonstrated in the GUI on the heart_disease case. Maximum score difference
+8.88e-16, components 25 × 25 and scores 303 × 25, see
+[`evidence/pca/`](evidence/pca/README.md#gui-evidence-for-t2a-zest-pca-vs-orange-pca-heart_disease-27-nov-2026).
 
-**Batas bentuk data ([ADR 0001](docs/adr/0001-jalur-dekomposisi-pca.md)):** zestcore hanya
-meniru jalur `covariance_eigh`, yang dipakai Orange bila p ≤ 1000 dan n ≥ 10p (n baris,
-p kolom setelah preprocessing). Di luar batas itu Orange memakai SVD `full` atau
-`randomized`, sehingga hasil Zest PCA hanya mendekati dan tidak dijamin identik. Widget
-menampilkan warning kuning dengan pesan itu, tetapi output tetap dikirim.
+**Data shape limit ([ADR 0001](docs/adr/0001-jalur-dekomposisi-pca.md)):** zestcore only
+reproduces the `covariance_eigh` path, which Orange uses when p ≤ 1000 and n ≥ 10p (n
+rows, p columns after preprocessing). Outside that range Orange uses `full` or
+`randomized` SVD, so Zest PCA results are only approximate and not guaranteed to be
+identical. The widget shows a yellow warning with that message, but still sends its
+outputs.
 
-**Keterbatasan yang diketahui:**
+**Known limitations:**
 
-- Belum ada scree plot (grafik explained variance). Direncanakan sebagai task lanjutan.
-- Belum ada spin "explained variance", output `Data` dan `PCA` (projector), maupun tombol
-  auto-apply seperti di widget PCA Orange.
-- Fit yang gagal (misalnya kurang dari 2 baris, atau tidak ada atribut setelah
-  preprocessing) tampil sebagai error merah dengan pesan mentah dari NumPy/scikit-learn.
-- Fit dijalankan sinkron (tanpa thread), cukup cepat untuk data seukuran bank-full
-  (45211 × 51).
+- No scree plot (explained variance chart) yet. Planned as a follow-up task.
+- No "explained variance" spin, no `Data` and `PCA` (projector) outputs, and no
+  auto-apply button as in Orange's PCA widget.
+- A failed fit (for example fewer than 2 rows, or no attributes left after preprocessing)
+  shows as a red error with the raw message from NumPy/scikit-learn.
+- The fit runs synchronously (no thread), which is fast enough for data the size of
+  bank-full (45211 × 51).
 
-## Hasil Tahap 1
+## Stage 1 results
 
-`zestcore.pca.pca` dibandingkan dengan PCA Orange 3.40.0 (widget PCA, Normalize ON) pada
-tiga dataset. Angka di bawah adalah selisih absolut maksimum terhadap Orange:
+`zestcore.pca.pca` compared with Orange 3.40.0 PCA (PCA widget, Normalize ON) on three
+datasets. The numbers below are the maximum absolute difference from Orange:
 
-| Dataset | Pembanding | komponen | skor | `explained_variance_` |
+| Dataset | Compared | components | scores | `explained_variance_` |
 |---|---|---|---|---|
 | iris (150×4) | zestcore | 0.0 | 5.55e-17 | 0.0 |
 | heart_disease (303×25) | zestcore | 0.0 | 8.88e-16 | 0.0 |
 | bank-full (45211×51) | zestcore | 0.0 | 3.11e-15 | 0.0 |
 
-Komponen dan varians sama persis (0.0). Skor berbeda di orde 1e-15, yaitu galat
-pembulatan floating-point dari urutan operasi BLAS, jauh di bawah toleransi uji
-(`np.allclose`, rtol=1e-5, atol=1e-8). Pembanding lain (scikit-learn langsung dan output
-GUI Orange yang direkam), perlakuan tanda komponen, dan komponen di ruang nol dibahas di
-[`docs/orange-pca-internals.md`](docs/orange-pca-internals.md) dan
+Components and variances match exactly (0.0). Scores differ on the order of 1e-15,
+which is floating-point rounding error from the order of BLAS operations, far below the
+test tolerance (`np.allclose`, rtol=1e-5, atol=1e-8). The other references (scikit-learn
+directly and recorded Orange GUI output), the handling of component signs, and
+components in the null space are covered in
+[`docs/orange-pca-internals.md`](docs/orange-pca-internals.md) and
 [`notebooks/02_pca_perbandingan.ipynb`](notebooks/02_pca_perbandingan.ipynb).
 
-## Struktur repo
+## Repo structure
 
-Dua lapis, dengan batas yang dijaga ketat:
+Two layers, with a strictly enforced boundary:
 
-| Folder | Isi |
+| Folder | Contents |
 |---|---|
-| `zestcore/` | Inti algoritma, **NumPy murni**. Tidak boleh `import Orange` atau `import sklearn`, supaya algoritmanya bisa diperiksa dan diuji tanpa Orange. |
-| `orangecontrib/zest/` | Lapis Orange yang hanya membungkus `zestcore`: adaptor `pca.py` (projector Orange) dan `widgets/` (Zest PCA). |
-| `tests/` | pytest. Orange dan scikit-learn dipakai di sini sebagai pembanding. |
-| `notebooks/` | Notebook bukti: `01_pca_gui_evidence` (GUI vs skrip), `02_pca_perbandingan` (zestcore, scikit-learn, GUI vs Orange). |
-| `evidence/pca/` | Output widget PCA dan Zest PCA yang direkam dari GUI Orange (`.pkl`, `.npy`, CSV, `.ows`, screenshot). Lihat [README-nya](evidence/pca/README.md). |
-| `docs/` | Spesifikasi PCA Orange dan keputusan desain (ADR). |
+| `zestcore/` | Algorithm core, **pure NumPy**. `import Orange` and `import sklearn` are not allowed, so the algorithm can be inspected and tested without Orange. |
+| `orangecontrib/zest/` | Orange layer that only wraps `zestcore`: the `pca.py` adapter (Orange projector) and `widgets/` (Zest PCA). |
+| `tests/` | pytest. Orange and scikit-learn are used here as references. |
+| `notebooks/` | Evidence notebooks: `01_pca_gui_evidence` (GUI vs script), `02_pca_perbandingan` (zestcore, scikit-learn, GUI vs Orange). |
+| `evidence/pca/` | Output of the PCA and Zest PCA widgets recorded from the Orange GUI (`.pkl`, `.npy`, CSV, `.ows`, screenshots). See its [README](evidence/pca/README.md). |
+| `docs/` | Orange PCA specification and design decisions (ADRs). |
 
-### Dokumentasi
+### Documentation
 
-- [`docs/orange-pca-internals.md`](docs/orange-pca-internals.md): spesifikasi cara Orange
-  3.40.0 menjalankan PCA, langkah yang ditiru, aturan test, batas cakupan, tabel klaim
-  beserta rujukan `file:baris`, dan status implementasi.
+- [`docs/orange-pca-internals.md`](docs/orange-pca-internals.md): specification of how
+  Orange 3.40.0 runs PCA, the steps reproduced, test rules, scope limits, a claims table
+  with `file:line` references, and implementation status.
 - [`docs/adr/0001-jalur-dekomposisi-pca.md`](docs/adr/0001-jalur-dekomposisi-pca.md):
-  jalur dekomposisi (covariance_eigh vs full SVD).
-- [`docs/adr/0002-batas-preprocessing.md`](docs/adr/0002-batas-preprocessing.md): batas
-  tanggung jawab preprocessing (zestcore vs pemanggil).
+  decomposition path (covariance_eigh vs full SVD).
+- [`docs/adr/0002-batas-preprocessing.md`](docs/adr/0002-batas-preprocessing.md):
+  preprocessing responsibility boundary (zestcore vs caller).
 - [`docs/adr/0003-output-widget-dan-transform.md`](docs/adr/0003-output-widget-dan-transform.md):
-  output widget dan transform data baru (adaptor projector Orange).
-- [`docs/proofs/pca_internals_check.py`](docs/proofs/pca_internals_check.py): skrip yang
-  memeriksa setiap klaim di spesifikasi.
+  widget outputs and transforming new data (Orange projector adapter).
+- [`docs/proofs/pca_internals_check.py`](docs/proofs/pca_internals_check.py): script that
+  checks every claim in the specification.
 
-## Contoh pemakaian
+## Usage example
 
-`zestcore` menerima matriks yang sudah diproses seperti di Orange (Continuize, imputasi,
-dan Normalize bila dipakai; lihat ADR 0002):
+`zestcore` takes a matrix already processed as in Orange (Continuize, imputation, and
+Normalize if used; see ADR 0002):
 
 ```python
 import numpy as np
@@ -128,27 +131,27 @@ from zestcore.pca import pca
 
 X = np.random.default_rng(0).normal(size=(200, 5))
 res = pca(X)                      # k = min(n, p)
-res.components                    # (k, p), satu baris per komponen
+res.components                    # (k, p), one row per component
 res.explained_variance_ratio      # (k,)
 res.scores                        # (n, k)
 ```
 
-Tanda tiap komponen dibuat deterministik: elemen dengan nilai mutlak terbesar selalu
-positif, sama dengan konvensi `svd_flip` di scikit-learn.
+The sign of each component is made deterministic: the element with the largest absolute
+value is always positive, the same as the `svd_flip` convention in scikit-learn.
 
-## Menjalankan test
+## Running the tests
 
-Semua angka dihasilkan dengan Python bawaan Orange supaya sama dengan GUI:
+All numbers are produced with Orange's bundled Python so they match the GUI:
 
-| | Versi |
+| | Version |
 |---|---|
 | Orange | 3.40.0 |
 | Python | 3.12.12 |
 | NumPy | 2.1.3 |
 | scikit-learn | 1.5.2 |
 
-Dari root repo (Windows, PowerShell; sesuaikan `D:\Orange` dengan lokasi instalasi
-Orange):
+From the repo root (Windows, PowerShell; replace `D:\Orange` with your Orange
+installation folder):
 
 ```powershell
 D:\Orange\python.exe -m pip install -e . --no-deps
@@ -156,7 +159,7 @@ D:\Orange\python.exe -m pip install pytest
 D:\Orange\python.exe -m pytest tests -q
 ```
 
-Atau di lingkungan Python 3.12 biasa, dengan versi yang sama seperti di CI:
+Or in a regular Python 3.12 environment, with the same versions as CI:
 
 ```bash
 pip install numpy==2.1.3 scikit-learn==1.5.2 Orange3==3.40.0 PyQt5==5.15.11 PyQtWebEngine==5.15.7 pytest
@@ -164,26 +167,27 @@ pip install -e . --no-deps
 QT_QPA_PLATFORM=offscreen pytest tests -q
 ```
 
-### Data bank-full
+### bank-full data
 
-Dataset [Bank Marketing (UCI)](https://archive.ics.uci.edu/dataset/222/bank+marketing)
-tidak disimpan di repo. Test yang memakainya membaca `bank-full.csv` dari path di env
-`ZEST_BANK_FULL` dan otomatis di-skip bila file tidak ada. Di CI test ini selalu di-skip
-(62 lulus, 9 skip); dengan datanya, semua 71 test lulus.
+The [Bank Marketing (UCI)](https://archive.ics.uci.edu/dataset/222/bank+marketing)
+dataset is not stored in the repo. Tests that use it read `bank-full.csv` from the path
+in the `ZEST_BANK_FULL` environment variable and are skipped automatically if the file is
+missing. In CI these tests are always skipped (62 passed, 9 skipped); with the data, all
+71 tests pass.
 
-Lint (aturan di `pyproject.toml`, `[tool.ruff.lint]`):
+Lint (rules in `pyproject.toml`, `[tool.ruff.lint]`):
 
 ```powershell
 ruff check .
 ```
 
 ```powershell
-$env:ZEST_BANK_FULL = "C:\path\ke\bank-full.csv"
+$env:ZEST_BANK_FULL = "C:\path\to\bank-full.csv"
 ```
 
-Cara menjalankan ulang notebook ada di
-[`evidence/pca/README.md`](evidence/pca/README.md#menjalankan-tes-dan-notebook).
+How to re-run the notebooks is described in
+[`evidence/pca/README.md`](evidence/pca/README.md#running-tests-and-notebooks).
 
-## Lisensi
+## License
 
-[GPL-3.0-or-later](LICENSE), sama dengan Orange.
+[GPL-3.0-or-later](LICENSE), the same as Orange.
