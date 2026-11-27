@@ -59,3 +59,12 @@ class TestOWZestPCA(WidgetTest):
                 rows += compare_variance(ref_c.metas[:, 1].astype(float),
                                          got_c.metas[:, 1].astype(float), n_null)
                 self.assertEqual([r for r in rows if not r["allclose"]], [])
+
+    def test_data_none_mengosongkan_output(self):
+        w = self.widget
+        self.send_signal(w.Inputs.data, Table("iris"))
+        self.assertIsNotNone(self.get_output(w.Outputs.transformed_data))
+
+        self.send_signal(w.Inputs.data, None)
+        self.assertIsNone(self.get_output(w.Outputs.transformed_data))
+        self.assertIsNone(self.get_output(w.Outputs.components))

@@ -50,6 +50,10 @@ class OWZestPCA(OWWidget):
 
     def fit(self):
         """Fit ulang (data atau normalize berubah), lalu kirim output."""
+        self._model = self._transformed = None
+        if self.data is None:
+            self.clear_outputs()
+            return
         preprocessors = list(ZestPCA.preprocessors)
         if self.normalize:
             preprocessors.append(Normalize(center=False))  # owpca.py:281-282
@@ -59,8 +63,15 @@ class OWZestPCA(OWWidget):
         self._transformed = self._model(self.data)
         self.commit()
 
+    def clear_outputs(self):
+        self.Outputs.transformed_data.send(None)
+        self.Outputs.components.send(None)
+
     def commit(self):
         """Iris hasil fit ke ncomponents, tanpa fit ulang (owpca.py:316-355)."""
+        if self._model is None:  # spin diubah saat belum ada hasil fit
+            self.clear_outputs()
+            return
         k = self.ncomponents
         ratio = self._model.explained_variance_ratio_[:k]
 
