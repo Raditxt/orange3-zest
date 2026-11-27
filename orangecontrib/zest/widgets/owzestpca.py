@@ -21,6 +21,7 @@ class OWZestPCA(OWWidget):
     name = "Zest PCA"
     description = "PCA NumPy murni (zestcore), hasilnya identik dengan widget PCA Orange."
     keywords = "pca, principal component analysis, zest"
+    icon = "icons/ZestPCA.svg"
 
     class Inputs:
         data = Input("Data", Table)

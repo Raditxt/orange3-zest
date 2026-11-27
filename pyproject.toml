@@ -26,3 +26,7 @@ Zest = "orangecontrib.zest.widgets"
 [tool.setuptools.packages.find]
 include = ["zestcore*", "orangecontrib*"]
 namespaces = true
+
+# Ikon widget: editable jalan tanpa ini, wheel/non-editable tidak.
+[tool.setuptools.package-data]
+"orangecontrib.zest.widgets" = ["icons/*.svg"]

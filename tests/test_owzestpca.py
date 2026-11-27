@@ -4,9 +4,16 @@ Pembanding: widget PCA Orange 3.40.0 dengan setting yang sama. Komponen dan skor
 dibandingkan dengan compare() (aturan seri/tanda dan ruang nol, toleransi spec
 rtol=1e-5 atol=1e-8); rasio varians dengan compare_variance().
 """
+from importlib.metadata import entry_points
+from pathlib import Path
+
 from Orange.data import Table
+from Orange.widgets.unsupervised import owpca
 from Orange.widgets.unsupervised.owpca import OWPCA
+from orangecanvas.registry import WidgetRegistry
+from orangecanvas.resources import icon_loader
 from orangewidget.tests.base import WidgetTest
+from orangewidget.workflow.discovery import WidgetDiscovery
 
 from pca_compare import compare, compare_variance, zero_variance_count
 from orangecontrib.zest.widgets.owzestpca import OWZestPCA
@@ -110,3 +117,23 @@ class TestOWZestPCA(WidgetTest):
         self.assertEqual(got_new.shape, (len(test), 4))
         rows = compare(ref_c.X, ref_new, got_c.X, got_new, zero_variance_count(train))
         self.assertEqual([r for r in rows if not r["allclose"]], [])
+
+
+def test_ikon_dan_kategori_dari_entry_point():
+    """Jalur yang sama dengan canvas Orange: entry point orange.widgets (metadata
+    paket terpasang, pyproject.toml) -> WidgetDiscovery -> icon_loader.find."""
+    eps = [ep for ep in entry_points(group="orange.widgets") if ep.name == "Zest"]
+    registry = WidgetRegistry()
+    WidgetDiscovery(registry).run(eps)
+
+    widget = registry.widget("orangecontrib.zest.widgets.owzestpca.OWZestPCA")
+    category = registry.category("Zest")
+    assert widget.name == "Zest PCA"
+    assert widget.category == "Zest"
+
+    widget_icon = icon_loader.from_description(widget).find(widget.icon)
+    category_icon = icon_loader.from_description(category).find(category.icon)
+    assert widget_icon and Path(widget_icon).suffix == ".svg"
+    assert category_icon and Path(category_icon).suffix == ".svg"
+    orange_pca_svg = Path(owpca.__file__).parent / "icons" / "PCA.svg"
+    assert Path(widget_icon).read_bytes() != orange_pca_svg.read_bytes()
