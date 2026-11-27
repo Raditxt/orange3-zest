@@ -175,14 +175,14 @@ in the `ZEST_BANK_FULL` environment variable and are skipped automatically if th
 missing. In CI these tests are always skipped (62 passed, 9 skipped); with the data, all
 71 tests pass.
 
+```powershell
+$env:ZEST_BANK_FULL = "C:\path\to\bank-full.csv"
+```
+
 Lint (rules in `pyproject.toml`, `[tool.ruff.lint]`):
 
 ```powershell
 ruff check .
-```
-
-```powershell
-$env:ZEST_BANK_FULL = "C:\path\to\bank-full.csv"
 ```
 
 How to re-run the notebooks is described in
