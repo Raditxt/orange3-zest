@@ -2,65 +2,68 @@
 status: accepted
 ---
 
-# Batas tanggung jawab preprocessing (zestcore vs pemanggil)
+# Preprocessing responsibility boundary (zestcore vs caller)
 
-## Konteks
+## Context
 
-Sebelum PCA, widget Orange menjalankan Continuize → SklImpute → Normalize
-(`docs/orange-pca-internals.md`, langkah 1-3, Klaim 1-3 dan 7). Langkah-langkah ini
-mengubah data secara besar: heart_disease 13 kolom jadi 25, 6 NaN diimputasi, dan
-indikator hasil imputasi jadi pecahan (`thal`: `[0.5515, 0.3887, 0.0598]`). Aturan
-`CLAUDE.md`: `zestcore/` NumPy murni, dilarang `import Orange`/`sklearn`;
-`orangecontrib/zest/` hanya membungkus `zestcore`.
+Before PCA, the Orange widget runs Continuize → SklImpute → Normalize
+(`docs/orange-pca-internals.md`, steps 1-3, Claims 1-3 and 7). These steps change the
+data substantially: heart_disease goes from 13 columns to 25, 6 NaNs are imputed, and
+imputed indicator values become fractions (`thal`: `[0.5515, 0.3887, 0.0598]`).
+`CLAUDE.md` rule: `zestcore/` is pure NumPy, `import Orange`/`sklearn` is forbidden;
+`orangecontrib/zest/` only wraps `zestcore`.
 
-Detail yang harus sama persis bila preprocessing ditiru:
+Details that must match exactly if preprocessing is reproduced:
 
-- Continuize butuh metadata variabel: tipe kolom dan daftar nilai *deklarasi* (urutan
-  kolom indikator dan aturan buang `len(var.values) < 2`, `continuize.py:21`). Nilai
-  deklarasi yang tidak muncul di data tetap jadi kolom 0 (Klaim 7).
-- Imputasi mean, lalu kolom seluruhnya NaN dibuang.
-- Normalize: SD ddof=0, tanpa centering, SD 0/NaN → 1. Salah ddof tidak tertangkap test
-  `components_`/rasio, hanya test skor dan `explained_variance_` (Klaim 3).
+- Continuize needs variable metadata: column type and the list of *declared* values
+  (order of indicator columns and the drop rule `len(var.values) < 2`,
+  `continuize.py:21`). Declared values that do not occur in the data still become a
+  column of 0 (Claim 7).
+- Mean imputation, then columns that are entirely NaN are dropped.
+- Normalize: SD with ddof=0, no centering, SD 0/NaN → 1. A wrong ddof is not caught by
+  the `components_`/ratio tests, only by the score and `explained_variance_` tests
+  (Claim 3).
 
-Keputusan ini juga jadi preseden untuk model Tahap 2 (metaheuristik), yang akan
-membutuhkan preprocessing serupa.
+This decision is also a precedent for the Stage 2 models (metaheuristics), which will
+need similar preprocessing.
 
-## Opsi
+## Options
 
-1. **zestcore mengerjakan semua (Continuize, imputasi, Normalize).** Input: X mentah +
-   metadata kolom dalam bentuk NumPy/Python biasa. zestcore bisa dipakai di luar Orange
-   dengan hasil setara. Kode paling banyak; semua aturan di atas harus ditiru dan diuji.
-2. **Pemanggil mengerjakan semua.** Lapis widget memakai preprocessor Orange sendiri;
-   zestcore hanya menerima X numerik siap pakai (langkah 4-7). Kesamaan preprocessing
-   dijamin karena kodenya kode Orange. zestcore saja tidak setara dengan PCA Orange
-   kecuali penggunanya memproses data dengan cara yang sama.
-3. **Dibagi: pemanggil Continuize, zestcore imputasi + Normalize.** Bagian yang butuh
-   metadata variabel Orange tetap di Orange; langkah numerik ada di zestcore.
+1. **zestcore does everything (Continuize, imputation, Normalize).** Input: raw X +
+   column metadata as plain NumPy/Python. zestcore can be used outside Orange with
+   equivalent results. Most code; all the rules above must be reproduced and tested.
+2. **The caller does everything.** The widget layer uses Orange's own preprocessors;
+   zestcore only takes ready-to-use numeric X (steps 4-7). Preprocessing agreement is
+   guaranteed because the code is Orange's code. zestcore alone is not equivalent to
+   Orange PCA unless its user processes the data the same way.
+3. **Split: caller does Continuize, zestcore does imputation + Normalize.** The part that
+   needs Orange variable metadata stays in Orange; the numeric steps are in zestcore.
 
-## Konsekuensi
+## Consequences
 
-- Opsi 1: klaim Tahap 1 ("PCA NumPy murni identik dengan Orange") berlaku dari data
-  mentah. zestcore perlu representasi metadata kolom sendiri.
-- Opsi 2: inti zestcore paling kecil; klaim "identik" berlaku dari X yang sudah
-  diproses. Test harus memberi X hasil preprocessing Orange ke zestcore.
-- Opsi 3: batasnya ada di tengah pipeline, jadi kedua lapis harus sepakat soal urutan
-  kolom dan NaN; test perlu menguji sambungannya.
-- Rumus jumlah arah varians nol (aturan test poin 2) butuh metadata nilai deklarasi;
-  di opsi 2 dan 3 rumus itu dihitung di sisi pemanggil atau test.
+- Option 1: the Stage 1 claim ("pure-NumPy PCA identical to Orange") holds from raw
+  data. zestcore needs its own representation of column metadata.
+- Option 2: smallest zestcore core; the "identical" claim holds from already processed
+  X. Tests must feed X preprocessed by Orange into zestcore.
+- Option 3: the boundary sits in the middle of the pipeline, so both layers must agree
+  on column order and NaNs; tests need to cover the seam.
+- The formula for the number of zero-variance directions (test rule 2) needs the
+  declared-values metadata; under options 2 and 3 that formula is computed on the
+  caller or test side.
 
-## Keputusan
+## Decision
 
-Saya memilih opsi 2: pemanggil mengerjakan semua preprocessing.
+I chose option 2: the caller does all preprocessing.
 
-Lapis widget dan test memakai preprocessor Orange sendiri (Continuize → SklImpute →
-Normalize). zestcore hanya menerima X numerik siap pakai dan mengerjakan langkah 4-7:
-n_components, centering + kovarians ddof=1 + eigh, tanda `svd_flip`, dan skor. Dengan
-begitu, kesamaan preprocessing dijamin karena memakai kode Orange, dan aturan
-CLAUDE.md (zestcore NumPy murni, tanpa `import Orange`/`sklearn`) tetap terjaga tanpa
-meniru metadata variabel Orange.
+The widget layer and the tests use Orange's own preprocessors (Continuize → SklImpute →
+Normalize). zestcore only takes ready-to-use numeric X and does steps 4-7:
+n_components, centering + covariance with ddof=1 + eigh, the `svd_flip` sign, and the
+scores. This way preprocessing agreement is guaranteed by using Orange's code, and the
+CLAUDE.md rule (zestcore is pure NumPy, no `import Orange`/`sklearn`) holds without
+reproducing Orange variable metadata.
 
-Klaim Tahap 1 ditulis sebagai: "PCA NumPy murni di zestcore identik dengan PCA Orange
-untuk X yang sudah diproses preprocessor Orange." Test memberi X hasil preprocessing
-Orange ke zestcore, dan rumus jumlah arah varians nol dihitung di sisi test. Untuk
-model Tahap 2, ini jadi preseden: zestcore menerima data numerik siap pakai, kecuali
-ada model yang memang butuh preprocessing khusus.
+The Stage 1 claim is stated as: "The pure-NumPy PCA in zestcore is identical to Orange
+PCA for X already processed by Orange preprocessors." Tests feed X preprocessed by
+Orange into zestcore, and the formula for the number of zero-variance directions is
+computed on the test side. For Stage 2 models this is the precedent: zestcore takes
+ready-to-use numeric data, unless a model genuinely needs special preprocessing.

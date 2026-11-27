@@ -2,198 +2,203 @@
 status: accepted
 ---
 
-# Output widget Zest PCA dan transform untuk data baru
+# Zest PCA widget outputs and transforming new data
 
-## Konteks
+## Context
 
-Task T2a (arahan Prof. Irfan, 23 Nov 2026): widget Zest PCA membungkus `zestcore.pca`,
-mengeluarkan minimal Transformed Data dan Components, dan bisa memproyeksikan data baru.
-Widget ini jadi template untuk model berikutnya (ExtDT). Preprocessing memakai
-preprocessor Orange (ADR 0002).
+Task T2a (Prof. Irfan's direction, 23 Nov 2026): the Zest PCA widget wraps
+`zestcore.pca`, outputs at least Transformed Data and Components, and can project new
+data. The widget becomes the template for the next model (ExtDT). Preprocessing uses
+Orange preprocessors (ADR 0002).
 
-Cara OWPCA melakukannya (Orange 3.40.0, path relatif ke `Orange/`):
+How OWPCA does it (Orange 3.40.0, paths relative to `Orange/`):
 
-- Domain Transformed Data dibangun di `DomainProjection.__init__`
-  (`projection/base.py:190-211`). Tiap komponen adalah `ContinuousVariable` dengan
+- The Transformed Data domain is built in `DomainProjection.__init__`
+  (`projection/base.py:190-211`). Each component is a `ContinuousVariable` with
   `compute_value=ComputeValueProjector(feature=i, transform=TransformDomain(self))`.
-- `TransformDomain.__call__` mengubah data ke `pre_domain` (domain hasil
-  preprocessing, disimpan di `projection/base.py:65,68`), lalu memanggil
-  `proj.transform(X)` (`projection/base.py:139-142`, `115-116`).
-  `ComputeValueProjector.compute` hanya mengambil kolom ke-i (`projection/base.py:175-176`).
-  Hasil `TransformDomain` di-cache per tabel sumber, jadi proyeksi dihitung sekali untuk
-  semua komponen (`data/table.py:312-317`).
-- Apply Domain hanya menjalankan `data.transform(template.domain)`
-  (`widgets/data/owtransform.py:27`). Variabel `pre_domain` membawa compute_value
-  preprocessor dengan statistik data latih, misalnya Normalize menyimpan SD latih
-  (`preprocess/normalize.py:47-67`). Data baru otomatis diproses dengan statistik latih.
-- Skor data latih juga lewat jalur ini: `self._pca(self.data)` (`owpca.py:321`) memanggil
-  `data.transform(self.domain)` (`projection/base.py:118-119`). Skor tidak diambil dari
-  hasil fit.
-- Output Components sengaja tanpa transform: `compute_value=lambda _: None`
+- `TransformDomain.__call__` converts the data to `pre_domain` (the preprocessed domain,
+  stored at `projection/base.py:65,68`), then calls `proj.transform(X)`
+  (`projection/base.py:139-142`, `115-116`).
+  `ComputeValueProjector.compute` only takes the i-th column (`projection/base.py:175-176`).
+  The `TransformDomain` result is cached per source table, so the projection is computed
+  once for all components (`data/table.py:312-317`).
+- Apply Domain only runs `data.transform(template.domain)`
+  (`widgets/data/owtransform.py:27`). The `pre_domain` variables carry the
+  preprocessors' compute_value with training-data statistics, for example Normalize
+  stores the training SD (`preprocess/normalize.py:47-67`). New data is automatically
+  processed with training statistics.
+- Training scores also go through this path: `self._pca(self.data)` (`owpca.py:321`)
+  calls `data.transform(self.domain)` (`projection/base.py:118-119`). Scores are not
+  taken from the fit result.
+- The Components output deliberately has no transform: `compute_value=lambda _: None`
   (`owpca.py:336-355`).
-- Variabel tanpa compute_value yang tidak ada di tabel sumber diisi nilai kosong
-  (`data/table.py:307-310`).
+- Variables without compute_value that are not in the source table are filled with
+  missing values (`data/table.py:307-310`).
 
-`zestcore.pca` (`zestcore/pca.py:17`) sekarang hanya mengembalikan skor untuk X yang
-dipakai fit. Belum ada fungsi untuk memproyeksikan X baru.
+`zestcore.pca` (`zestcore/pca.py:17`) currently only returns scores for the X used in
+the fit. There is no function yet to project new X.
 
-## Opsi
+## Options
 
-Opsi 1a-1c sama-sama menghasilkan Transformed Data yang bisa dipakai Apply Domain.
-Perbedaannya ada di siapa yang membangun domain dan menjalankan preprocessing.
+Options 1a-1c all produce Transformed Data that can be used by Apply Domain. They differ
+in who builds the domain and runs preprocessing.
 
-### 1a. Adaptor diserahkan ke `DomainProjection` Orange
+### 1a. Adapter handed to Orange's `DomainProjection`
 
-Kelas adaptor di `orangecontrib/zest/` menyimpan `components_` dan `mean_`, dengan
-`transform(X)` yang memanggil zestcore. Widget menjalankan preprocessor sendiri, lalu
-membuat `DomainProjection(adaptor, pre_domain, k)` dan mengisi `pre_domain` serta `name`
-secara manual. Kedua atribut itu biasanya diisi `Projector.__call__`
+An adapter class in `orangecontrib/zest/` stores `components_` and `mean_`, with a
+`transform(X)` that calls zestcore. The widget runs the preprocessors itself, then
+creates `DomainProjection(adaptor, pre_domain, k)` and sets `pre_domain` and `name`
+manually. Those two attributes are normally set by `Projector.__call__`
 (`projection/base.py:65-69`).
 
-- Jumlah kode: paling sedikit, sekitar 15-20 baris adaptor plus preprocessing di widget.
-- Ketergantungan: `DomainProjection` ada di `__all__` (`projection/base.py:21-22`),
-  tetapi kontraknya implisit. Adaptor harus punya atribut yang dibaca lewat
+- Amount of code: least, about 15-20 lines of adapter plus preprocessing in the widget.
+- Dependencies: `DomainProjection` is in `__all__` (`projection/base.py:21-22`), but its
+  contract is implicit. The adapter must have the attributes read through
   `__dict__.update(proj.__dict__)` (`projection/base.py:112`, `201-202`). `pre_domain`
-  diisi dari luar, padahal di Orange atribut itu diisi `Projector`.
-- Skor latih lewat compute_value: ya, bila widget memanggil `model(data)` seperti
+  is set from outside, whereas in Orange that attribute is set by `Projector`.
+- Training scores through compute_value: yes, if the widget calls `model(data)` as in
   `owpca.py:321`.
-- Pickle: Transformed Data yang disimpan sebagai `.pkl` membawa adaptor di
-  compute_value. Kelas adaptor harus didefinisikan di tingkat modul, dan file hanya bisa
-  dibuka bila orange3-zest terpasang. Save Model tidak relevan karena inputnya
-  `Orange.base.Model` (`widgets/model/owsavemodel.py:22`), sedangkan proyeksi bukan
-  `Model`. Hal ini berlaku untuk semua opsi.
+- Pickle: Transformed Data saved as `.pkl` carries the adapter in compute_value. The
+  adapter class must be defined at module level, and the file can only be opened when
+  orange3-zest is installed. Save Model is not relevant because its input is
+  `Orange.base.Model` (`widgets/model/owsavemodel.py:22`), and a projection is not a
+  `Model`. This applies to all options.
 
-### 1b. compute_value sendiri dengan pola `TransformDomain`/`ComputeValueProjector`
+### 1b. Own compute_value following the `TransformDomain`/`ComputeValueProjector` pattern
 
-`orangecontrib/zest/` menulis kelas compute_value bersama (subclass `SharedComputeValue`)
-dan per kolom, lalu membangun `Domain` sendiri. `TransformDomain` di sini juga
-mengerjakan konversi ke `pre_domain`.
+`orangecontrib/zest/` writes a shared compute_value class (subclass of
+`SharedComputeValue`) and a per-column one, then builds its own `Domain`. The
+`TransformDomain` here also does the conversion to `pre_domain`.
 
-- Jumlah kode: paling banyak, sekitar 50-70 baris. Termasuk `__eq__`/`__hash__`,
-  yang wajib supaya cache tabel benar (`data/util.py:77-84`, `projection/base.py:144-162`).
-- Ketergantungan: hanya `SharedComputeValue`, `Domain`, dan `ContinuousVariable`, yang
-  merupakan API data publik. Tidak bergantung pada `Orange.projection`.
-- Skor latih lewat compute_value: ya, bila widget memanggil `data.transform(domain)`.
-- Pickle: sama dengan 1a. Kelas compute_value harus di tingkat modul dan perlu
-  orange3-zest terpasang. Fungsi lokal atau lambda tidak bisa di-pickle.
+- Amount of code: most, about 50-70 lines. Includes `__eq__`/`__hash__`, which are
+  required for correct table caching (`data/util.py:77-84`, `projection/base.py:144-162`).
+- Dependencies: only `SharedComputeValue`, `Domain`, and `ContinuousVariable`, which are
+  public data API. No dependency on `Orange.projection`.
+- Training scores through compute_value: yes, if the widget calls
+  `data.transform(domain)`.
+- Pickle: same as 1a. The compute_value classes must be at module level and need
+  orange3-zest installed. Local functions or lambdas cannot be pickled.
 
 ### 1c. `ZestPCA(Projector)` + `ZestPCAModel(DomainProjection)`
 
-Pasangan ini meniru `PCA`/`PCAModel` (`projection/pca.py:27-53`, `73-78`) dan
-`LinearProjector` (`projection/base.py:241-259`). `ZestPCA.preprocessors` berisi
-Continuize → SklImpute (→ Normalize bila dicentang). `fit(X)` memanggil `zestcore.pca`
-dan mengembalikan `ZestPCAModel`. `Projector.__call__` menjalankan preprocessing dan
-mengisi `pre_domain` (`projection/base.py:54-71`).
+This pair mirrors `PCA`/`PCAModel` (`projection/pca.py:27-53`, `73-78`) and
+`LinearProjector` (`projection/base.py:241-259`). `ZestPCA.preprocessors` contains
+Continuize → SklImpute (→ Normalize if checked). `fit(X)` calls `zestcore.pca` and
+returns a `ZestPCAModel`. `Projector.__call__` runs preprocessing and sets `pre_domain`
+(`projection/base.py:54-71`).
 
-- Jumlah kode: sedikit, sekitar 30-40 baris, dan widget tetap tipis.
-- Ketergantungan: `Projector` dan `DomainProjection` (keduanya di `__all__`), dipakai
-  persis sesuai pola subclass Orange sendiri. Kontrak `proj.transform`/`components_`
-  dan `mean_` tetap implisit seperti di 1a.
-- Skor latih lewat compute_value: ya, jalurnya sama dengan OWPCA (`model(data)`).
-- Pickle: sama dengan 1a. `Projector` sudah menangani state thread-local
-  (`projection/base.py:99-106`). `ZestPCA` juga bisa dikirim sebagai output setara
-  output `PCA` milik OWPCA (`owpca.py:364`).
+- Amount of code: small, about 30-40 lines, and the widget stays thin.
+- Dependencies: `Projector` and `DomainProjection` (both in `__all__`), used exactly
+  following Orange's own subclass pattern. The `proj.transform`/`components_` and
+  `mean_` contract stays implicit as in 1a.
+- Training scores through compute_value: yes, the same path as OWPCA (`model(data)`).
+- Pickle: same as 1a. `Projector` already handles its thread-local state
+  (`projection/base.py:99-106`). `ZestPCA` can also be sent as an output equivalent to
+  OWPCA's `PCA` output (`owpca.py:364`).
 
-### 2. Tabel NumPy biasa tanpa transform
+### 2. Plain NumPy table without transform
 
-Widget memanggil `zestcore.pca`, lalu membuat `Table` dari `result.scores` dengan
-variabel PC tanpa compute_value.
+The widget calls `zestcore.pca`, then creates a `Table` from `result.scores` with PC
+variables that have no compute_value.
 
-- Jumlah kode: sedikit, sekitar 15 baris di widget, dan tidak butuh fungsi transform di
-  zestcore.
-- Ketergantungan: hanya `Table`, `Domain`, dan `ContinuousVariable`.
-- Skor latih lewat compute_value: tidak. Skor diambil langsung dari `result.scores`,
-  jadi jalurnya beda dengan OWPCA.
-- Pickle: `.pkl` bisa dibuka tanpa orange3-zest. Data baru tidak bisa diproyeksikan:
-  Apply Domain menghasilkan kolom PC kosong (`data/table.py:307-310`). Syarat T2a
-  ("transform untuk data baru") tidak terpenuhi.
+- Amount of code: small, about 15 lines in the widget, and no transform function is
+  needed in zestcore.
+- Dependencies: only `Table`, `Domain`, and `ContinuousVariable`.
+- Training scores through compute_value: no. Scores are taken directly from
+  `result.scores`, so the path differs from OWPCA.
+- Pickle: the `.pkl` can be opened without orange3-zest. New data cannot be projected:
+  Apply Domain produces empty PC columns (`data/table.py:307-310`). The T2a requirement
+  ("transform for new data") is not met.
 
-## Konsekuensi
+## Consequences
 
-- **zestcore butuh `transform(X, mean, components)` untuk opsi 1a-1c.** Rumusnya harus
-  ditaruh di zestcore. Kalau ditulis di lapis widget, aturan "hanya membungkus" di
-  CLAUDE.md terlanggar. Bentuk rumus menentukan seberapa dekat hasilnya dengan sklearn:
-  - sklearn menghitung `X @ C.T - mean @ C.T` (`sklearn/decomposition/_base.py:148-155`).
-  - `(X - mean) @ C.T` setara secara matematis, tetapi beda urutan floating-point. Hasilnya
-    hanya identik dalam toleransi spec, tidak bit-identik.
-  - `zestcore.pca` sudah memakai bentuk sklearn untuk skor latih (`zestcore/pca.py:64-65`).
-    `transform` sebaiknya memakai bentuk yang sama, dan `pca` memanggilnya, supaya hanya
-    ada satu sumber rumus.
-  - Apakah hasilnya bit-identik dengan Orange tetap harus diukur (selisih maksimum
-    dilaporkan), karena `mean` dan `components` sendiri berasal dari jalur hitung zestcore.
-- **Template untuk ExtDT: pola tiga lapis.**
-  1. `zestcore`: algoritma NumPy murni.
-  2. Kelas adaptor Orange di `orangecontrib/zest/`: `Projector`/`DomainProjection` untuk
-     proyeksi, `Learner`/`Model` untuk ExtDT.
-  3. Widget tipis yang hanya mengatur setting, memanggil adaptor, dan mengirim output.
+- **zestcore needs `transform(X, mean, components)` for options 1a-1c.** The formula
+  must live in zestcore. If it were written in the widget layer, the "only wraps" rule
+  in CLAUDE.md would be broken. The form of the formula determines how close the result
+  is to sklearn:
+  - sklearn computes `X @ C.T - mean @ C.T` (`sklearn/decomposition/_base.py:148-155`).
+  - `(X - mean) @ C.T` is mathematically equivalent, but the floating-point order
+    differs. The result is only identical within the spec tolerance, not bit-identical.
+  - `zestcore.pca` already uses the sklearn form for training scores
+    (`zestcore/pca.py:64-65`). `transform` should use the same form, and `pca` should
+    call it, so there is a single source for the formula.
+  - Whether the result is bit-identical to Orange still has to be measured (maximum
+    difference reported), because `mean` and `components` themselves come from
+    zestcore's computation path.
+- **Template for ExtDT: the three-layer pattern.**
+  1. `zestcore`: pure-NumPy algorithm.
+  2. Orange adapter classes in `orangecontrib/zest/`: `Projector`/`DomainProjection` for
+     projection, `Learner`/`Model` for ExtDT.
+  3. A thin widget that only manages settings, calls the adapter, and sends outputs.
 
-  Untuk learner, preprocessing dan penyimpanan `original_domain` dikerjakan
-  `Learner.__call__` (`Orange/base.py:124-162`). Data baru diubah ke domain model oleh
-  `Model.data_to_model_domain` (`Orange/base.py:343-386`) dan masuk lewat widget
-  Predictions. Mekanisme compute_value per kolom (`DomainProjection`,
-  `TransformDomain`, `ComputeValueProjector`) tidak terpakai di ExtDT. Yang terbawa ke
-  ExtDT adalah pola tiga lapis, preprocessing lewat preprocessor Orange (ADR 0002), dan
-  kerangka widget. Dari keempat opsi, 1c yang bentuknya paling sejajar dengan pasangan
-  `Learner`/`Model`. Pola pasangan seperti itu tidak ada di 1a, 1b, maupun 2.
-- **Bukti identik di test dan `.ows`:** pada opsi 1a-1c, skor dibandingkan lewat jalur yang
-  sama dengan OWPCA (`model(data)`). Pada opsi 2, test membandingkan `result.scores`
-  dengan skor OWPCA dari jalur compute_value.
+  For a learner, preprocessing and storing `original_domain` are done by
+  `Learner.__call__` (`Orange/base.py:124-162`). New data is converted to the model
+  domain by `Model.data_to_model_domain` (`Orange/base.py:343-386`) and comes in through
+  the Predictions widget. The per-column compute_value mechanism (`DomainProjection`,
+  `TransformDomain`, `ComputeValueProjector`) is not used in ExtDT. What carries over to
+  ExtDT is the three-layer pattern, preprocessing through Orange preprocessors (ADR
+  0002), and the widget skeleton. Of the four options, 1c is the one whose shape is most
+  parallel to the `Learner`/`Model` pair. 1a, 1b, and 2 have no such pair.
+- **Evidence of identity in tests and `.ows`:** with options 1a-1c, scores are compared
+  through the same path as OWPCA (`model(data)`). With option 2, the tests compare
+  `result.scores` with OWPCA scores from the compute_value path.
 
-## Keputusan
+## Decision
 
-Saya memilih opsi 1c: ZestPCA(Projector) dan ZestPCAModel(DomainProjection) di
+I chose option 1c: ZestPCA(Projector) and ZestPCAModel(DomainProjection) in
 orangecontrib/zest.
 
-- fit() memanggil zestcore.pca pada X yang sudah melewati preprocessor Projector
-  (Continuize → SklImpute → Normalize bila dicentang). zestcore tetap NumPy murni.
-- zestcore mendapat fungsi transform(X, mean, components) dengan rumus yang sama dengan
-  zestcore.pca dan sklearn: X @ C.T − mean @ C.T.
-- Skor Transformed Data dihitung lewat compute_value, baik untuk data latih maupun data
-  baru lewat Apply Domain, sama seperti OWPCA (owpca.py:321).
-- Semua kelas yang tersimpan di domain hasil (model dan objek proj) didefinisikan di
-  level modul supaya bisa di-pickle, dan ini diuji. Bentuk objek proj (ZestPCA sendiri
-  seperti LinearProjector, atau objek kecil terpisah) diputuskan saat implementasi
-  dengan contoh kecil.
-- Klaim: hasil Zest PCA identik dengan PCA Orange dalam toleransi spec. Bit-identik
-  hanya dicatat sebagai observasi.
+- fit() calls zestcore.pca on X that has gone through the Projector's preprocessors
+  (Continuize → SklImpute → Normalize if checked). zestcore stays pure NumPy.
+- zestcore gets a transform(X, mean, components) function with the same formula as
+  zestcore.pca and sklearn: X @ C.T − mean @ C.T.
+- Transformed Data scores are computed through compute_value, both for training data
+  and for new data via Apply Domain, just like OWPCA (owpca.py:321).
+- All classes stored in the output domain (the model and the proj object) are defined at
+  module level so they can be pickled, and this is tested. The form of the proj object
+  (ZestPCA itself like LinearProjector, or a separate small object) is decided during
+  implementation with a small example.
+- Claim: Zest PCA results are identical to Orange PCA within the spec tolerance.
+  Bit-identity is only recorded as an observation.
 
-Alasan: jalurnya sama dengan OWPCA, jadi perbandingannya setara. Preprocessing dan
-statistik data latih ikut terbawa ke data baru tanpa kode tambahan (ADR 0002). Pola tiga
-lapis (zestcore → kelas adaptor Orange → widget tipis) menjadi template untuk ExtDT,
-dengan pasangan Learner/Model menggantikan Projector/DomainProjection.
+Reason: the path is the same as OWPCA, so the comparison is like for like.
+Preprocessing and training-data statistics carry over to new data with no extra code
+(ADR 0002). The three-layer pattern (zestcore → Orange adapter classes → thin widget)
+becomes the template for ExtDT, with the Learner/Model pair replacing
+Projector/DomainProjection.
 
-## Catatan implementasi
+## Implementation notes
 
-Bentuk objek proj (25 Nov 2026, T2a langkah 4a): **objek kecil terpisah** `ZestPCAFit`,
-dibuat baru di setiap `ZestPCA.fit()`. Objek ini membawa `mean_`, `components_`,
-`explained_variance_`, dan `explained_variance_ratio_`. Rasio dibutuhkan widget untuk
-`var.attributes["variance"]` (`owpca.py:325-328`). `transform(X)` memanggil
-`zestcore.transform`. Polanya sama dengan PCA Orange, yang membungkus objek sklearn baru
-(`projection/pca.py:51-53`).
+Form of the proj object (25 Nov 2026, T2a step 4a): **a separate small object**
+`ZestPCAFit`, created fresh in every `ZestPCA.fit()`. It carries `mean_`,
+`components_`, `explained_variance_`, and `explained_variance_ratio_`. The ratio is
+needed by the widget for `var.attributes["variance"]` (`owpca.py:325-328`).
+`transform(X)` calls `zestcore.transform`. The pattern is the same as Orange PCA, which
+wraps a fresh sklearn object (`projection/pca.py:51-53`).
 
-Alternatifnya, `ZestPCA` sendiri sebagai proj (pola `LinearProjector`,
-`projection/base.py:251-259`), ditolak berdasarkan contoh kecil pada iris
+The alternative, `ZestPCA` itself as proj (the `LinearProjector` pattern,
+`projection/base.py:251-259`), was rejected based on a small example on iris
 (`docs/proofs/proj_forms_check.py`):
 
-- Model lama berubah saat projector yang sama di-fit ulang. `DomainProjection` menyalin
-  `proj.__dict__` (`projection/base.py:112`), tetapi `transform` tetap memanggil
-  `self.proj.transform` (`:115-116`). Setelah projector di-fit ulang pada `iris[:50]`,
-  `model(iris)` dari fit pertama berubah dengan selisih maks 5.46, dan
-  `model.components_` tidak lagi sama dengan `model.proj.components_`.
-- Pickle domain hasil maupun model gagal (`cannot pickle '_thread._local'`). Salinan
-  `__dict__` itu ikut membawa `_Projector__tls` ke model, sedangkan atribut ini hanya
-  dibuang oleh `Projector.__getstate__` (`:99-102`), bukan oleh `DomainProjection`.
-  Dengan objek terpisah, domain hasil dan model iris bisa di-pickle (2807 byte).
+- An old model changes when the same projector is refitted. `DomainProjection` copies
+  `proj.__dict__` (`projection/base.py:112`), but `transform` still calls
+  `self.proj.transform` (`:115-116`). After the projector is refitted on `iris[:50]`,
+  `model(iris)` from the first fit changes with a max difference of 5.46, and
+  `model.components_` no longer equals `model.proj.components_`.
+- Pickling the output domain or the model fails (`cannot pickle '_thread._local'`). The
+  `__dict__` copy also carries `_Projector__tls` into the model, and that attribute is
+  only dropped by `Projector.__getstate__` (`:99-102`), not by `DomainProjection`. With a
+  separate object, the iris output domain and model can be pickled (2807 bytes).
 
-Aturan template: **`transform(X)` hanya memakai statistik hasil fit, tidak pernah
-statistik dari X yang sedang ditransformasi.** `Table.transform`/`from_table` menjalankan
-compute_value per potongan maksimal 5000 baris (`_FromTableConversion.max_rows_at_once`,
-`data/table.py:385`, `423-448`). `compute_shared` (di sini `TransformDomain`) menerima
-potongan baris itu (`data/table.py:303, 316`), bukan seluruh tabel, dan cache dikosongkan
-setelah setiap potongan (`:446-448`). Bukti: `model(table)` pada bank-full (45211 baris)
-memanggil `ZestPCAFit.transform` 10 kali (9 × 5000 + 211 baris), sedangkan iris cukup
-sekali. Uji sensitivitas 4a menunjukkan akibatnya: bila `transform` memakai
-`X.mean(axis=0)`, skor data latih bank-full ikut salah, walaupun tabelnya sama dengan
-data fit, karena setiap potongan memakai mean-nya sendiri. Iris dan heart_disease tetap
-lolos karena hanya satu potongan. Aturan ini juga berlaku untuk model berikutnya (ExtDT)
-dan untuk preprocessor buatan sendiri.
+Template rule: **`transform(X)` only uses statistics from the fit, never statistics of
+the X being transformed.** `Table.transform`/`from_table` run compute_value in chunks of
+at most 5000 rows (`_FromTableConversion.max_rows_at_once`, `data/table.py:385`,
+`423-448`). `compute_shared` (here `TransformDomain`) receives that chunk of rows
+(`data/table.py:303, 316`), not the whole table, and the cache is cleared after each
+chunk (`:446-448`). Evidence: `model(table)` on bank-full (45211 rows) calls
+`ZestPCAFit.transform` 10 times (9 × 5000 + 211 rows), whereas iris needs only one call.
+The 4a sensitivity test shows the consequence: if `transform` uses `X.mean(axis=0)`, the
+bank-full training scores also come out wrong, even though the table is the same as the
+fit data, because each chunk uses its own mean. iris and heart_disease still pass
+because they are a single chunk. This rule also applies to the next model (ExtDT) and to
+custom preprocessors.

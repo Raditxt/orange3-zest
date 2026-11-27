@@ -2,358 +2,366 @@
 status: proposed
 ---
 
-# Keluarga model ExtDT di atas pohon dasar NumPy
+# ExtDT model family on top of a NumPy base tree
 
-## Konteks
+## Context
 
-Arahan Prof. Irfan (23 Nov 2026): model pertama Tahap 2 adalah "extended decision tree"
-(ExtDT). Kajian T2b menemukan bahwa istilah ini tidak menunjuk ke satu algoritma, tetapi
-ke beberapa kandidat. Pembandingnya, Tree milik Orange 3.40.0, sudah dibedah di
-`docs/orange-tree-internals.md` (Klaim 1-7). ADR ini memakai ADR 0002 (preprocessing
-lewat preprocessor Orange) dan ADR 0003 (pola tiga lapis: zestcore, lalu adapter
-Orange, lalu widget tipis; untuk ExtDT adapternya berupa pasangan `Learner`/`Model`).
+Prof. Irfan's direction (23 Nov 2026): the first Stage 2 model is the "extended decision
+tree" (ExtDT). The T2b review found that this term does not point to a single algorithm
+but to several candidates. The reference, Orange 3.40.0's Tree, has already been
+dissected in `docs/orange-tree-internals.md` (Claims 1-7). This ADR builds on ADR 0002
+(preprocessing through Orange preprocessors) and ADR 0003 (three-layer pattern:
+zestcore, then an Orange adapter, then a thin widget; for ExtDT the adapter is a
+`Learner`/`Model` pair).
 
-Fakta yang mengikat semua opsi di bawah. Path relatif ke
+Facts that bind all the options below. Paths relative to
 `D:\Orange\Lib\site-packages\`.
 
-- **Tree Orange bukan sklearn.** Widget Tree memakai `TreeLearner` Orange: information
-  gain dalam bit, threshold = nilai data maksimum di sisi kiri, NaN tidak diimputasi,
-  dan atribut diskret ditangani langsung (Klaim 1-5).
+- **Orange's Tree is not sklearn.** The Tree widget uses Orange's `TreeLearner`:
+  information gain in bits, threshold = the largest data value on the left side, NaN is
+  not imputed, and discrete attributes are handled directly (Claims 1-5).
 - **sklearn `ExtraTreesClassifier` (1.5.2).**
-  - Threshold diambil acak seragam di [min, max] fitur pada node
+  - The threshold is drawn uniformly at random in [min, max] of the feature at the node
     (`sklearn/tree/_splitter.pyx:785-792`).
-  - Kriteria hanya `gini`, `entropy`, atau `log_loss` (`sklearn/tree/_classes.py:941`).
-    Skor ternormalisasi 2I/(Hs+Hc) dari Geurts dkk. (2006) tidak tersedia. Kriteria
-    baru hanya bisa ditambahkan sebagai subclass `Criterion` Cython, bukan NumPy.
-  - NaN ditolak, karena `allow_nan` hanya berlaku untuk `splitter="best"`
-    (`_classes.py:1085-1090`). Dicek: fit dengan satu NaN menghasilkan `ValueError:
-    Input X contains NaN`.
-- **Pola Orange untuk membungkus sklearn.** `RandomForestLearner` adalah `SklLearner`
-  (`Orange/classification/random_forest.py:42-44`) dengan preprocessor bawaan
+  - The criterion can only be `gini`, `entropy`, or `log_loss`
+    (`sklearn/tree/_classes.py:941`). The normalized score 2I/(Hs+Hc) from Geurts et al.
+    (2006) is not available. A new criterion can only be added as a Cython `Criterion`
+    subclass, not in NumPy.
+  - NaN is rejected, because `allow_nan` only applies to `splitter="best"`
+    (`_classes.py:1085-1090`). Checked: fitting with one NaN gives `ValueError: Input X
+    contains NaN`.
+- **Orange's pattern for wrapping sklearn.** `RandomForestLearner` is a `SklLearner`
+  (`Orange/classification/random_forest.py:42-44`) with the default preprocessors
   `HasClass, Continuize, RemoveNaNColumns, SklImpute` (`Orange/base.py:549-553`).
-  Atribut diskret di-one-hot dan NaN diimputasi sebelum sampai ke sklearn.
-- **Preprocessor dari widget menggantikan preprocessor bawaan.** Aturan ini ada di
-  `Orange/base.py:53-58`. Pengecualiannya learner `Fitter`, yang diberi
+  Discrete attributes are one-hot encoded and NaNs imputed before reaching sklearn.
+- **Preprocessors from the widget replace the default preprocessors.** The rule is in
+  `Orange/base.py:53-58`. The exception is a `Fitter` learner, which is given
   `use_default_preprocessors = True` (`Orange/widgets/utils/owlearnerwidget.py:203-204`).
-  Untuk learner non-Fitter, widget hanya menampilkan info "Ignoring default
+  For non-Fitter learners, the widget only shows the info message "Ignoring default
   preprocessing" (`owlearnerwidget.py:87-91, 216-219`).
-- **Temuan T2b-1 (Klaim 1).** Pada `Fitter`, kwarg `preprocessors` dibuang di jalur
-  regresi, karena `__init__` regresi tidak punya nama itu (`Orange/modelling/base.py:82-86`).
+- **Finding T2b-1 (Claim 1).** In a `Fitter`, the `preprocessors` kwarg is dropped on the
+  regression path, because the regression `__init__` has no parameter with that name
+  (`Orange/modelling/base.py:82-86`).
 
-## Keputusan
+## Decision
 
-Raditya memutuskan (26 Nov 2026):
+Raditya decided (26 Nov 2026; translated from Indonesian):
 
-> ExtDT dikerjakan sebagai keluarga model di atas satu pohon dasar NumPy, dengan
-> urutan: Extra Trees (pilot, Geurts 2006, pembanding sklearn `ExtraTreesClassifier`)
-> → DT multi-label → C4.5 (pembanding Weka J48) → UDT → Extension DT (diawali riset
-> lanjutan: cari dataset publik + angka acuan).
+> ExtDT is built as a family of models on top of one NumPy base tree, in this order:
+> Extra Trees (pilot, Geurts 2006, compared against sklearn `ExtraTreesClassifier`)
+> → multi-label DT → C4.5 (compared against Weka J48) → UDT → Extension DT (preceded by
+> further research: find a public dataset + reference numbers).
 
-Lima pertanyaan di bawah **belum diputuskan**. Tiap pertanyaan memuat opsi beserta
-konsekuensinya, dan pilihannya diserahkan kepada Raditya.
+The five questions below are **not yet decided**. Each question lists options with
+their consequences, and the choice is left to Raditya.
 
-Catatan istilah: "ExtDT" sekarang dipakai untuk nama keluarga, sedangkan "Extension DT"
-adalah salah satu anggotanya, dan "Extra Trees" adalah anggota lain. Ketiganya mudah
-tertukar di laporan. Nama kanoniknya perlu ditetapkan sebelum kode pertama.
+Terminology note: "ExtDT" is now used as the family name, while "Extension DT" is one of
+its members, and "Extra Trees" is another member. The three are easy to mix up in the
+report. Canonical names need to be fixed before the first code.
 
-## Pertanyaan 1. Tulis dari nol (NumPy) atau bungkus sklearn
+## Question 1. Write from scratch (NumPy) or wrap sklearn
 
-### 1a. Pohon dasar ditulis dari nol di zestcore (NumPy murni)
+### 1a. Base tree written from scratch in zestcore (pure NumPy)
 
-- Sesuai aturan CLAUDE.md dan ADR 0003: zestcore berisi algoritma, adapter hanya
-  membungkus.
-- Skor 2I/(Hs+Hc) bisa ditulis langsung, begitu juga gain ratio C4.5, entropi
-  multi-label, dan bobot pecahan UDT. Semua anggota keluarga berbagi kode yang sama.
-- Hasil pilot tidak akan identik dengan sklearn, karena generator bilangan acak dan
-  urutan pengambilan atributnya berbeda. Yang bisa diklaim hanya kesetaraan distribusi
-  (Pertanyaan 3).
-- Risiko kecepatan: pembangunan node berjalan di Python. Extra Trees relatif ringan
-  (satu threshold acak per atribut kandidat, bisa divektorkan per node), tetapi ensemble
-  100 pohon pada bank-full (45211 baris) belum pernah diukur. Waktunya harus diukur,
-  bukan diasumsikan.
+- Consistent with CLAUDE.md and ADR 0003: zestcore holds the algorithm, the adapter only
+  wraps.
+- The 2I/(Hs+Hc) score can be written directly, as can C4.5 gain ratio, multi-label
+  entropy, and UDT fractional weights. All family members share the same code.
+- Pilot results will not be identical to sklearn, because the random number generator
+  and the order of attribute sampling differ. Only distributional equivalence can be
+  claimed (Question 3).
+- Speed risk: node building runs in Python. Extra Trees is relatively light (one random
+  threshold per candidate attribute, can be vectorized per node), but a 100-tree
+  ensemble on bank-full (45211 rows) has never been measured. The time must be measured,
+  not assumed.
 
-### 1b. Bungkus sklearn `ExtraTreesClassifier` seperti `RandomForestLearner`
+### 1b. Wrap sklearn `ExtraTreesClassifier` like `RandomForestLearner`
 
-- Kodenya paling sedikit (pola `SklLearner`). Untuk seed yang sama, hasilnya identik
-  dengan sklearn, dan cepat.
-- Tidak ada kode di zestcore, sehingga aturan "orangecontrib hanya membungkus zestcore"
-  dilanggar, atau perlu pengecualian tertulis.
-- Skor paper 2I/(Hs+Hc) tidak bisa dipakai tanpa menulis `Criterion` Cython. Akibatnya
-  pilot menjadi "Extra Trees versi sklearn", bukan versi Geurts 2006.
-- Tidak ada bagian yang bisa dipakai ulang oleh C4.5, UDT, maupun multi-label. Keputusan
-  "satu pohon dasar" baru mulai berlaku di anggota kedua, jadi pilot tidak menguji
-  pohon dasar sama sekali.
+- Least code (the `SklLearner` pattern). For the same seed, results are identical to
+  sklearn, and fast.
+- There is no code in zestcore, so the rule "orangecontrib only wraps zestcore" is
+  broken, or a written exception is needed.
+- The paper's 2I/(Hs+Hc) score cannot be used without writing a Cython `Criterion`. As a
+  result the pilot becomes "sklearn's Extra Trees", not the Geurts 2006 version.
+- Nothing can be reused by C4.5, UDT, or multi-label. The "one base tree" decision only
+  takes effect from the second member, so the pilot does not test the base tree at all.
 
-### 1c. Pohon dasar NumPy dengan skor yang bisa dipilih: `entropy` dan `paper`
+### 1c. NumPy base tree with a selectable score: `entropy` and `paper`
 
-Sama dengan 1a, ditambah mode skor `entropy` (information gain biasa, seperti
-`criterion="entropy"` di sklearn) di samping skor paper 2I/(Hs+Hc).
+Same as 1a, plus an `entropy` score mode (plain information gain, like
+`criterion="entropy"` in sklearn) next to the paper's 2I/(Hs+Hc) score.
 
-- Perbandingan dengan sklearn bisa dipisah menjadi dua langkah:
-  1. Mode `entropy` vs sklearn: hanya berbeda di bilangan acak.
-  2. Mode `paper` vs mode `entropy`: hanya berbeda di fungsi skor.
-  Pada 1a, kedua perbedaan ini tercampur dalam satu angka.
-- Biayanya satu fungsi skor tambahan beserta test-nya. Di widget, mode ini bisa
-  disembunyikan.
+- The comparison with sklearn can be split into two steps:
+  1. `entropy` mode vs sklearn: differs only in random numbers.
+  2. `paper` mode vs `entropy` mode: differs only in the score function.
+  In 1a, these two differences are mixed into one number.
+- The cost is one extra score function with its tests. In the widget, this mode can be
+  hidden.
 
-## Pertanyaan 2. Batas pohon dasar dan titik perluasan
+## Question 2. Base tree boundary and extension points
 
-Tujuannya, E/D/C (anggota berikutnya) cukup *menambah* kode, bukan *mengubah* pohon
-dasar. Empat titik perluasan dari brief (kriteria split, pemilih threshold, aturan stop,
-agregasi ensemble) ternyata belum cukup. Tabel berikut memetakan kebutuhan tiap anggota.
-Sumbernya pengetahuan umum tentang algoritma tersebut dan belum dicek ulang ke paper
-masing-masing (lihat Status).
+The goal is that E/D/C (the next members) only *add* code, not *change* the base tree.
+The four extension points from the brief (split criterion, threshold selector, stopping
+rule, ensemble aggregation) turn out not to be enough. The table below maps what each
+member needs. The source is general knowledge of these algorithms and has not been
+rechecked against each paper (see Status).
 
-| Kebutuhan | Extra Trees | Multi-label | C4.5 | UDT | Extension DT |
+| Need | Extra Trees | Multi-label | C4.5 | UDT | Extension DT |
 |---|---|---|---|---|---|
-| Kriteria split | 2I/(Hs+Hc) | entropi multi-label | gain ratio | entropi berbobot | ? |
-| Pemilih threshold | acak di [min, max] node | exhaustive | nilai data (≤ titik tengah) | exhaustive atas titik pdf | ? |
-| Pemilihan atribut | K acak | semua | semua | semua | ? |
-| Bentuk target y | 1 kolom kelas | **matriks n × L** | 1 kolom | 1 kolom | ? |
-| Bobot baris | tidak | tidak | **ya** (missing pecahan) | **ya** (tuple pecahan) | ? |
-| Split diskret multiway | opsional | opsional | **ya** | ? | ? |
-| Pasca-bangun | tidak | tidak | **pruning** | ? | ? |
-| Agregasi ensemble | ya | tidak | tidak | tidak | ? |
+| Split criterion | 2I/(Hs+Hc) | multi-label entropy | gain ratio | weighted entropy | ? |
+| Threshold selector | random in node [min, max] | exhaustive | data value (≤ midpoint) | exhaustive over pdf points | ? |
+| Attribute selection | K random | all | all | all | ? |
+| Target y shape | 1 class column | **n × L matrix** | 1 column | 1 column | ? |
+| Row weights | no | no | **yes** (fractional missing) | **yes** (fractional tuples) | ? |
+| Multiway discrete split | optional | optional | **yes** | ? | ? |
+| Post-build | no | no | **pruning** | ? | ? |
+| Ensemble aggregation | yes | no | no | no | ? |
 
-Yang tidak tercakup empat titik dari brief ditandai tebal:
+What the four points from the brief do not cover is marked in bold:
 
-- **Bentuk target.** Multi-label mengubah daun dari "jumlah per kelas" menjadi "frekuensi
-  per label". Kalau pohon dasar mengasumsikan y 1-D, anggota kedua sudah harus mengubah
-  pohon dasar.
-- **Bobot baris.** C4.5 dan UDT membagi satu baris ke beberapa cabang dengan bobot
-  pecahan. Kalau bobot tidak ada sejak awal, anggota ketiga harus mengubah pohon dasar.
-- **Pruning.** Ini langkah setelah pohon selesai dibangun, bukan bagian dari aturan
-  stop.
+- **Target shape.** Multi-label changes the leaf from "count per class" to "frequency
+  per label". If the base tree assumes a 1-D y, the second member already has to change
+  the base tree.
+- **Row weights.** C4.5 and UDT split one row across several branches with fractional
+  weights. If weights are not there from the start, the third member has to change the
+  base tree.
+- **Pruning.** This is a step after the tree is built, not part of the stopping rule.
 
-### 2a. Fungsi strategi (parameter callable)
+### 2a. Strategy functions (callable parameters)
 
-`build_tree(X, y, w, *, score, propose_splits, should_stop, rng)` di zestcore. Tiap anggota
-keluarga berupa satu set fungsi. Ensemble dan pruning menjadi fungsi terpisah yang
-memanggil atau menerima pohon.
+`build_tree(X, y, w, *, score, propose_splits, should_stop, rng)` in zestcore. Each
+family member is a set of functions. Ensembling and pruning are separate functions that
+call or take a tree.
 
-- NumPy murni, dan tiap fungsi bisa diuji sendiri dengan angka brute-force, seperti di
-  `tree_internals_check.py`.
-- Konsistensi antarfungsi tidak dijaga oleh struktur. Misalnya, skor multi-label yang
-  diberi y 1-D baru gagal saat dijalankan, jadi perlu validasi di awal.
+- Pure NumPy, and each function can be tested on its own against brute-force numbers,
+  as in `tree_internals_check.py`.
+- Consistency between functions is not enforced by the structure. For example, a
+  multi-label score given a 1-D y only fails at run time, so upfront validation is
+  needed.
 
-### 2b. Kelas dasar dengan method yang di-override
+### 2b. Base class with overridden methods
 
-`BaseTree` punya `_score`, `_propose_splits`, `_should_stop`, dan `_leaf_value`.
-Tiap anggota keluarga menjadi subclass.
+`BaseTree` has `_score`, `_propose_splits`, `_should_stop`, and `_leaf_value`. Each
+family member is a subclass.
 
-- Lebih mudah dibaca bagi pembaca yang terbiasa OOP, dan cocok dengan pasangan
-  `Learner`/`Model` Orange.
-- Ada risiko kopling warisan. Subclass sering ikut bergantung pada urutan pemanggilan
-  internal, sehingga perubahan di `BaseTree` bisa merusak anggota lain tanpa terlihat.
+- Easier to read for readers used to OOP, and fits Orange's `Learner`/`Model` pair.
+- There is a risk of inheritance coupling. Subclasses often end up depending on the
+  internal call order, so a change in `BaseTree` can silently break other members.
 
-### 2c. Kontrak data saja, tanpa kerangka bersama
+### 2c. Data contract only, no shared framework
 
-Pohon dasar hanya menetapkan struktur node (array `feature`, `threshold`, `children`,
-`value`, `weight`) dan fungsi prediksi. Tiap anggota menulis builder-nya sendiri.
+The base tree only defines the node structure (arrays `feature`, `threshold`,
+`children`, `value`, `weight`) and the prediction function. Each member writes its own
+builder.
 
-- Paling sederhana untuk pilot, dan kontrak node tetap dipakai bersama.
-- Logika rekursi dan aturan stop terduplikasi di tiap anggota. Ini menyimpang dari
-  maksud keputusan "satu pohon dasar".
+- Simplest for the pilot, and the node contract is still shared.
+- The recursion logic and stopping rules are duplicated in every member. This departs
+  from the intent of the "one base tree" decision.
 
-Konsekuensi yang berlaku untuk semua opsi: kalau `y` 2-D dan `w` tidak masuk kontrak
-sejak pilot, janji "menambah, bukan mengubah" tidak berlaku untuk multi-label maupun
-C4.5. Dua hal ini tidak menambah kode pilot secara berarti (y bisa `(n, 1)` dan w bisa
-semua 1), tetapi harus diuji sejak awal.
+Consequence for all options: if a 2-D `y` and `w` are not in the contract from the
+pilot, the "add, not change" promise does not hold for multi-label or C4.5. These two
+add no meaningful pilot code (y can be `(n, 1)` and w can be all 1), but they must be
+tested from the start.
 
-## Pertanyaan 3. Klaim kebenaran pilot
+## Question 3. Pilot correctness claim
 
-Hasil pilot tidak bisa identik dengan sklearn (Pertanyaan 1). Sesuai CLAUDE.md, hal ini
-adalah temuan yang sah dan penyebabnya harus ditulis. Ada tiga lapis klaim yang bisa
-diambil sebagian atau semuanya.
+Pilot results cannot be identical to sklearn (Question 1). Per CLAUDE.md, that is a
+valid finding and its cause must be written down. There are three layers of claims,
+which can be taken partly or all together.
 
-### 3a. Komponen deterministik: identik
+### 3a. Deterministic components: identical
 
-Ini mencakup fungsi skor vs perhitungan brute-force, threshold selalu berada di
-[min, max] node, aturan stop, dan prediksi pohon yang dibangun manual. Hasilnya diuji
-dengan `np.allclose` dan selisih maksimum dilaporkan, seperti Tahap 1. Klaim ini kuat
-dan murah.
+This covers the score function vs brute-force computation, the threshold always lying
+in the node's [min, max], the stopping rule, and predictions of a hand-built tree.
+Results are tested with `np.allclose` and the maximum difference is reported, as in
+Stage 1. This claim is strong and cheap.
 
-### 3b. Ensemble: setara distribusi dengan sklearn
+### 3b. Ensemble: distributionally equivalent to sklearn
 
-- Setting disamakan: `n_estimators`, `max_features` = K, `min_samples_split` = n_min,
-  `bootstrap=False`, `criterion="entropy"` (dibandingkan dengan mode `entropy` di 1c).
-- Desain eksperimen: R seed × CV berlapis k-fold berulang (misalnya 10 × 10), lalu
-  rata-rata ± sd akurasi/AUC per dataset.
-- **Kriteria "setara" harus ditulis sebelum melihat angka.** Contohnya: selisih rata-rata
-  < x, atau uji berpasangan per fold dengan ambang tertentu. Kalau kriterianya
-  ditetapkan setelah melihat angka, itu sama saja dengan menutupi selisih memakai
-  toleransi longgar.
-- Perbedaan yang sudah diketahui dan harus dicatat:
-  - RNG dan urutan pengambilan atribut berbeda.
-  - sklearn melewati atribut konstan saat mengambil K atribut.
-  - Agregasi berbeda. sklearn merata-ratakan probabilitas, sedangkan Geurts 2006
-    (sejauh yang saya ingat) memakai voting mayoritas untuk klasifikasi. Ini perlu
-    dicek di paper.
+- Matched settings: `n_estimators`, `max_features` = K, `min_samples_split` = n_min,
+  `bootstrap=False`, `criterion="entropy"` (compared with the `entropy` mode in 1c).
+- Experiment design: R seeds × repeated stratified k-fold CV (for example 10 × 10), then
+  mean ± sd of accuracy/AUC per dataset.
+- **The "equivalent" criterion must be written before looking at the numbers.** For
+  example: mean difference < x, or a paired per-fold test with a given threshold. Setting
+  the criterion after seeing the numbers amounts to covering a difference with a loose
+  tolerance.
+- Known differences that must be recorded:
+  - The RNG and the order of attribute sampling differ.
+  - sklearn skips constant attributes when drawing K attributes.
+  - Aggregation differs. sklearn averages probabilities, while Geurts 2006 (as far as I
+    remember) uses majority voting for classification. This needs to be checked in the
+    paper.
 
-### 3c. Performa vs Tree dan Random Forest Orange
+### 3c. Performance vs Orange's Tree and Random Forest
 
-Perbandingan lewat Test and Score dengan fold yang sama, plus bukti `.ows`. Ini bukan
-klaim kebenaran, melainkan klaim kegunaan. Setting pembanding harus disebut:
+Comparison through Test and Score with the same folds, plus `.ows` evidence. This is not
+a correctness claim but a usefulness claim. The reference settings must be stated:
 
-- Tree memakai default widget (`binarize=True`, dst., Klaim 1).
-- RF memakai Continuize + SklImpute.
+- Tree uses the widget defaults (`binarize=True`, etc., Claim 1).
+- RF uses Continuize + SklImpute.
 
-Konsekuensi: 3a + 3b membuktikan "implementasi benar", 3c menjawab "apakah berguna".
-Tanpa 3b, klaim pilot hanya "masuk akal". Tanpa 3a, kegagalan di 3b sulit dilacak
-penyebabnya.
+Consequence: 3a + 3b prove "the implementation is correct", 3c answers "is it useful".
+Without 3b, the pilot claim is only "plausible". Without 3a, a failure in 3b is hard to
+trace to its cause.
 
-## Pertanyaan 4. Missing value dan atribut diskret: di pohon atau di preprocessing
+## Question 4. Missing values and discrete attributes: in the tree or in preprocessing
 
-ADR 0002 menetapkan preprocessing lewat preprocessor Orange dan zestcore hanya menerima
-X numerik siap pakai, "kecuali ada model yang memang butuh preprocessing khusus". Tree
-Orange sendiri berada di pengecualian itu, karena tidak punya preprocessor (Klaim 1, 3, 5).
+ADR 0002 sets preprocessing through Orange preprocessors, with zestcore only taking
+ready-to-use numeric X, "unless a model genuinely needs special preprocessing". Orange's
+Tree itself falls under that exception, since it has no preprocessors (Claims 1, 3, 5).
 
-### 4a. Ditangani di pohon
+### 4a. Handled in the tree
 
-zestcore menerima X dengan NaN, ditambah metadata sederhana berupa array NumPy biasa:
-`is_discrete` dan `n_values` per kolom.
+zestcore takes X with NaN, plus simple metadata as plain NumPy arrays: `is_discrete` and
+`n_values` per column.
 
-- Ini satu-satunya cara agar C4.5 bisa dibandingkan dengan J48, yang punya split diskret
-  multiway dan missing pecahan secara internal. UDT juga butuh representasi khusus.
-- Ini menjadi pengecualian ADR 0002 yang pertama, dan harus ditulis. zestcore mulai
-  membawa metadata kolom, yang dulu dihindari di ADR 0002 opsi 1.
-- Adapter tetap memakai `HasClass` (baris dengan target NaN dibuang). Ini sama dengan
-  Orange, Klaim 5a.
+- This is the only way C4.5 can be compared with J48, which has multiway discrete
+  splits and fractional missing handling internally. UDT also needs a special
+  representation.
+- This becomes the first exception to ADR 0002, and it must be written down. zestcore
+  starts carrying column metadata, which ADR 0002 option 1 avoided.
+- The adapter still uses `HasClass` (rows with a NaN target are dropped). This is the
+  same as Orange, Claim 5a.
 
-### 4b. Preprocessing Orange (pola `SklLearner`: Continuize + Impute)
+### 4b. Orange preprocessing (the `SklLearner` pattern: Continuize + Impute)
 
-- Konsisten penuh dengan ADR 0002, dan zestcore tetap paling kecil.
-- Pembandingan pilot dengan sklearn menjadi adil, karena sklearn juga menerima data
-  one-hot dan sudah diimputasi.
-- One-hot mengubah perilaku Extra Trees. K atribut acak diambil dari kolom indikator,
-  bukan dari atribut asli, sehingga atribut diskret dengan banyak nilai lebih sering
-  terpilih. Ini menyimpang dari Geurts, yang menangani atribut kategorikal secara
-  langsung.
-- C4.5 dan UDT nanti tetap butuh 4a, jadi kontrak input zestcore berubah di tengah jalan.
+- Fully consistent with ADR 0002, and zestcore stays smallest.
+- The pilot comparison with sklearn is fair, because sklearn also takes one-hot,
+  already-imputed data.
+- One-hot changes Extra Trees' behavior. The K random attributes are drawn from the
+  indicator columns, not from the original attributes, so discrete attributes with many
+  values are picked more often. This departs from Geurts, which handles categorical
+  attributes directly.
+- C4.5 and UDT will still need 4a later, so the zestcore input contract changes midway.
 
-### 4c. Bertahap: pilot memakai 4b, kontrak input sudah memuat slot untuk 4a
+### 4c. Staged: the pilot uses 4b, the input contract already has slots for 4a
 
-`build_tree` sejak awal menerima `is_discrete`/`n_values` (pilot: semua kontinu) dan
-mengizinkan NaN di kontrak. Pilot sendiri menolak NaN dengan pesan yang jelas.
+`build_tree` takes `is_discrete`/`n_values` from the start (pilot: all continuous) and
+allows NaN in the contract. The pilot itself rejects NaN with a clear message.
 
-- Pilot tetap sederhana, dan anggota berikutnya cukup menambah tanpa mengubah tanda
-  tangan fungsi.
-- Ada parameter yang belum dipakai di pilot, dan ini harus dijelaskan saat
-  dipertanggungjawabkan.
+- The pilot stays simple, and later members only add without changing function
+  signatures.
+- Some parameters are unused in the pilot, and that has to be explained when defending
+  the code.
 
-Konsekuensi untuk semua opsi: kalau adapter punya preprocessor bawaan dan pengguna
-menyambungkan widget Preprocess, preprocessor bawaan **diganti**, bukan ditambah
-(`Orange/base.py:53-58`). Pada opsi 4b, ini berarti NaN bisa sampai ke zestcore lewat
-GUI. Validasi input di adapter atau di zestcore wajib ada di semua opsi.
+Consequence for all options: if the adapter has default preprocessors and the user
+connects a Preprocess widget, the default preprocessors are **replaced**, not added to
+(`Orange/base.py:53-58`). Under option 4b, this means NaN can reach zestcore through the
+GUI. Input validation in the adapter or in zestcore is required under every option.
 
-## Pertanyaan 5. Preprocessor yang hilang di jalur regresi
+## Question 5. Preprocessors lost on the regression path
 
-Temuan T2b-1: `Fitter` membuang kwarg `preprocessors` bila `__init__` learner regresi
-tidak menyebut nama itu. Untuk ExtDT, artinya preprocessor dari widget hilang tanpa
-pesan apa pun bila adapter memakai `Fitter` dan learner regresinya lalai menyebut
-parameter itu.
+Finding T2b-1: a `Fitter` drops the `preprocessors` kwarg if the regression learner's
+`__init__` does not name it. For ExtDT, this means preprocessors from the widget are
+lost with no message at all if the adapter uses a `Fitter` and its regression learner
+forgets to name that parameter.
 
-### 5a. Pilot klasifikasi saja, tanpa `Fitter`
+### 5a. Classification-only pilot, no `Fitter`
 
-`ZestExtraTreesLearner` langsung berupa `Learner` klasifikasi.
+`ZestExtraTreesLearner` is directly a classification `Learner`.
 
-- Masalah ini tidak muncul di pilot. Extra Trees memang punya varian regresi, tetapi
-  sklearn pembandingnya klasifikasi.
-- Masalahnya hanya ditunda. Begitu regresi ditambahkan, Pertanyaan 5 muncul lagi.
-  Learner non-Fitter juga tidak mendapat `use_default_preprocessors = True` dari widget
-  (Pertanyaan 4).
+- The problem does not arise in the pilot. Extra Trees does have a regression variant,
+  but the sklearn reference is classification.
+- The problem is only postponed. As soon as regression is added, Question 5 comes back.
+  Non-Fitter learners also do not get `use_default_preprocessors = True` from the widget
+  (Question 4).
 
-### 5b. `Fitter` sendiri, kedua learner wajib menerima `preprocessors` + test penanda
+### 5b. Own `Fitter`, both learners must accept `preprocessors` + a marker test
 
-Kedua `__init__` menyebut `preprocessors` secara eksplisit. Test meniru
-`check_klaim1`: penanda harus sampai ke learner klasifikasi **dan** regresi.
+Both `__init__` methods name `preprocessors` explicitly. The test mirrors
+`check_klaim1`: the marker must reach the classification learner **and** the regression
+learner.
 
-- Satu widget bisa melayani dua jenis target, seperti widget Tree, dan default
-  preprocessor tetap aktif karena Fitter (`owlearnerwidget.py:203-204`).
-- Kodenya lebih banyak, dan test penanda harus dijaga untuk setiap anggota keluarga.
+- One widget can serve both target types, like the Tree widget, and the default
+  preprocessors stay active because of the Fitter (`owlearnerwidget.py:203-204`).
+- More code, and the marker test must be maintained for every family member.
 
-### 5c. Tanpa input Preprocessor dari widget
+### 5c. No Preprocessor input from the widget
 
-Preprocessor ditetapkan di kelas learner, dan widget tidak meneruskan input
-Preprocessor.
+Preprocessors are fixed in the learner class, and the widget does not forward a
+Preprocessor input.
 
-- Masalahnya hilang sepenuhnya dan perilakunya mudah dijelaskan.
-- Berbeda dengan semua widget learner Orange, yang punya input Preprocessor
-  (`owlearnerwidget.py:92`). Pengguna yang terbiasa menyambungkan Preprocess akan
-  heran saat inputnya tidak ada.
+- The problem disappears entirely and the behavior is easy to explain.
+- Unlike every Orange learner widget, which has a Preprocessor input
+  (`owlearnerwidget.py:92`). Users used to connecting Preprocess will be surprised that
+  the input is missing.
 
-Konsekuensi untuk semua opsi: bentuk adapter yang dipilih menjadi template untuk semua
-anggota keluarga, jadi pilihannya sebaiknya diambil sebelum pilot. Test penanda (5b)
-bisa ditambahkan di opsi apa pun dan murah.
+Consequence for all options: the adapter shape chosen becomes the template for every
+family member, so the choice should be made before the pilot. The marker test (5b) can
+be added under any option and is cheap.
 
 ## Status
 
 ### Handoff 26 Nov 2026 (T2b-2)
 
-**Selesai**
+**Done**
 
-- Draf ADR ini (status `proposed`), dengan keputusan urutan keluarga dari Raditya dan
-  lima pertanyaan beserta opsinya. Tidak ada kode zestcore.
-- Fakta sklearn 1.5.2 dan Orange 3.40.0 di bagian Konteks dicek ke kode yang
-  terpasang. Fakta NaN di `ExtraTreesClassifier` dicek dengan menjalankan fit.
-- Notion: Catatan task T2b diisi dan status diubah ke Selesai. 📊 Laporan dikirim ke PM.
+- Draft of this ADR (status `proposed`), with Raditya's family-order decision and five
+  questions with their options. No zestcore code.
+- The sklearn 1.5.2 and Orange 3.40.0 facts in the Context section were checked against
+  the installed code. The NaN fact for `ExtraTreesClassifier` was checked by running a
+  fit.
+- Notion: the T2b task notes were filled in and its status set to Done. A 📊 Report was
+  sent to the PM.
 
-**Belum terverifikasi / perlu diperhatikan**
+**Unverified / needs attention**
 
-- Klaim tentang paper di ADR ini awalnya ditulis dari pengetahuan umum, karena file riset
-  belum ada saat draf dibuat. Pencocokan dengan `docs/research/extdt-kandidat-rujukan.md`
-  (commit e312660) ada di bagian "Pencocokan klaim paper" di bawah. Opsi dan rekomendasi
-  tidak diubah.
-- Nama kanonik: ExtDT, Extension DT, Extra Trees (lihat catatan istilah). Belum ada
-  `GLOSSARY.md`. Dibuat setelah nama ditetapkan.
+- The paper claims in this ADR were originally written from general knowledge, because
+  the research file did not exist yet when the draft was made. The cross-check against
+  `docs/research/extdt-kandidat-rujukan.md` (commit e312660) is in the section "Paper
+  claim cross-check against the research file" below. Options and recommendations were
+  not changed.
+- Canonical names: ExtDT, Extension DT, Extra Trees (see the terminology note). There is
+  no `GLOSSARY.md` yet. It will be created once the names are fixed.
 
-### Pencocokan klaim paper dengan file riset (26 Nov 2026)
+### Paper claim cross-check against the research file (26 Nov 2026)
 
-Arti label:
+Label meanings:
 
-- **cocok**: isinya sama dengan file riset, dan file riset tidak menandainya
-  [belum terverifikasi].
-- **berbeda**: file riset menyatakan hal lain.
-- **belum terverifikasi**: file riset tidak membahasnya, atau menandainya
-  [belum terverifikasi].
+- **matches**: the content is the same as in the research file, and the research file
+  does not mark it [unverified].
+- **differs**: the research file states something else.
+- **unverified**: the research file does not discuss it, or marks it [unverified].
 
-File riset sendiri bukan sumber primer, jadi label "cocok" berarti sesuai dengan file
-riset, bukan sudah dicek langsung ke PDF.
+The research file itself is not a primary source, so the label "matches" means
+consistent with the research file, not checked directly against the PDF.
 
-| No | Klaim di ADR 0004 (lokasi) | Isi file riset | Status |
+| No | Claim in ADR 0004 (location) | Research file content | Status |
 |---|---|---|---|
-| 1 | Skor Extra Trees di Geurts 2006 = 2I/(Hs+Hc), tidak ada di sklearn (Konteks, 1b, 1c, tabel P2) | Bagian A: paper memakai normalized information gain 2·I/(H_s+H_c), sklearn gini/entropy/log_loss | **cocok** |
-| 2 | Geurts 2006 memakai voting mayoritas, sklearn rata-rata probabilitas (3b) | Tidak dibahas sama sekali | **belum terverifikasi**: tetap harus dicek ke PDF Geurts |
-| 3 | Threshold C4.5 = nilai data terbesar ≤ titik tengah (tabel P2) | Bagian D hanya menyebut gain ratio, missing fraksional, pruning CF=0,25, subtree raising, dan koreksi MDL. Aturan threshold tidak disebut | **belum terverifikasi**. Yang **cocok** dengan tabel P2: gain ratio, bobot untuk missing pecahan, dan pruning |
-| 4 | UDT butuh bobot baris (tuple pecahan), entropi berbobot, threshold exhaustive atas titik pdf (tabel P2) | Bagian C: UDT mencari split atas interval pdf (s=100 titik sampel). Ekspansi `sample_weight` disebut "hanya aproksimasi, bukan pencarian split ala UDT (inferensi)". Tuple pecahan tidak disebut | **berbeda sebagian**: pencarian split atas pdf cocok, tetapi file riset menyatakan bobot baris saja tidak cukup untuk UDT. Tuple pecahan **belum terverifikasi** |
-| 5 | Multi-label: entropi multi-label (Clare & King 2001), target n × L, daun = frekuensi per label (tabel P2, P2 poin "Bentuk target") | Bagian E: entropi −Σ[p log p + q log q] dan daun berisi **himpunan label**. Gain vs gain ratio dan aturan pelabelan daun **[belum terverifikasi]** | Entropi **cocok**. Isi daun **berbeda**: paper menyebut himpunan label, ADR menyebut frekuensi per label. Aturan pelabelan daun **belum terverifikasi** |
+| 1 | Extra Trees score in Geurts 2006 = 2I/(Hs+Hc), not in sklearn (Context, 1b, 1c, Q2 table) | Section A: the paper uses normalized information gain 2·I/(H_s+H_c), sklearn gini/entropy/log_loss | **matches** |
+| 2 | Geurts 2006 uses majority voting, sklearn averages probabilities (3b) | Not discussed at all | **unverified**: still needs checking against the Geurts PDF |
+| 3 | C4.5 threshold = largest data value ≤ midpoint (Q2 table) | Section D only mentions gain ratio, fractional missing, pruning CF=0.25, subtree raising, and the MDL correction. The threshold rule is not mentioned | **unverified**. What **matches** the Q2 table: gain ratio, weights for fractional missing, and pruning |
+| 4 | UDT needs row weights (fractional tuples), weighted entropy, exhaustive threshold over pdf points (Q2 table) | Section C: UDT searches splits over pdf intervals (s=100 sample points). `sample_weight` expansion is called "only an approximation, not UDT-style split search (inference)". Fractional tuples are not mentioned | **partly differs**: split search over the pdf matches, but the research file states that row weights alone are not enough for UDT. Fractional tuples **unverified** |
+| 5 | Multi-label: multi-label entropy (Clare & King 2001), target n × L, leaf = frequency per label (Q2 table, Q2 point "Target shape") | Section E: entropy −Σ[p log p + q log q] and the leaf holds a **set of labels**. Gain vs gain ratio and the leaf labeling rule **[unverified]** | Entropy **matches**. Leaf content **differs**: the paper says a set of labels, the ADR says frequency per label. Leaf labeling rule **unverified** |
 
-Temuan lain dari file riset yang menyentuh teks ADR. Ini dicatat saja, teks opsinya
-tidak diubah.
+Other findings from the research file that touch the ADR text. They are only recorded
+here; the option text is not changed.
 
-- **1b** menulis bahwa membungkus sklearn tidak memberi bagian yang bisa dipakai ulang
-  oleh multi-label. Menurut bagian E, `DecisionTreeClassifier` dengan y 2-D dan
-  `criterion="entropy"` memberi impurity yang setara dengan entropi ML-C4.5 dibagi L.
-  Artinya sklearn tetap bisa jadi pembanding parsial untuk multi-label.
-  - Uji 298/300 di file riset dijalankan dengan sklearn 1.9.1, bukan 1.5.2.
-  - Uji itu juga belum dipublikasikan.
-- **Tabel P2, Extra Trees, "split diskret multiway: opsional".** Menurut bagian A, paper
-  memakai split subset acak (dua cabang) untuk atribut nominal, bukan multiway.
-- **Tabel P2, Extension DT, semua "?".** Bagian B: model matter-element, diskretisasi dengan
-  dependent function, lalu pohon ID3 (information gain), lalu extension transform pada
-  aturan. Tidak ada kode, dataset publik, atau angka akurasi.
-- **Pembulatan K.** sklearn memakai floor, paper "rounded" (bagian A, ditandai
-  [belum terverifikasi]). Ini relevan untuk 3b, karena `max_features` harus disamakan.
-- **Multi-target di adapter.** Bagian E: `TreeLearner`/`SklTreeLearner` tidak
-  menyetel `supports_multiclass`, sehingga data multi-target memicu `TypeError`. Adapter
-  multi-label butuh `supports_multiclass = True`.
+- **1b** states that wrapping sklearn provides nothing reusable for multi-label.
+  According to section E, `DecisionTreeClassifier` with a 2-D y and
+  `criterion="entropy"` gives an impurity equivalent to ML-C4.5 entropy divided by L.
+  This means sklearn can still serve as a partial reference for multi-label.
+  - The 298/300 test in the research file was run with sklearn 1.9.1, not 1.5.2.
+  - That test is also unpublished.
+- **Q2 table, Extra Trees, "multiway discrete split: optional".** According to section
+  A, the paper uses random subset splits (two branches) for nominal attributes, not
+  multiway.
+- **Q2 table, Extension DT, all "?".** Section B: a matter-element model, discretization
+  with a dependent function, then an ID3 tree (information gain), then an extension
+  transform on the rules. No code, public dataset, or accuracy numbers.
+- **Rounding of K.** sklearn uses floor, the paper says "rounded" (section A, marked
+  [unverified]). This matters for 3b, because `max_features` has to be matched.
+- **Multi-target in the adapter.** Section E: `TreeLearner`/`SklTreeLearner` do not set
+  `supports_multiclass`, so multi-target data triggers a `TypeError`. A multi-label
+  adapter needs `supports_multiclass = True`.
 
-**Langkah berikutnya (urutan usulan, jadwal diatur PM)**
+**Next steps (proposed order, schedule set by the PM)**
 
-1. Raditya memilih opsi untuk Pertanyaan 1-5, lalu menulisnya di bagian Keputusan dan
-   mengubah status menjadi `accepted`.
-2. Cek ke PDF klaim yang masih belum terverifikasi: agregasi Geurts (no. 2), threshold
-   C4.5 (no. 3), tuple pecahan UDT (no. 4), dan isi daun ML-C4.5 (no. 5).
-3. Tulis kriteria "setara" (3b) sebelum eksperimen.
-4. Pecah pilot menjadi task implementasi: contoh kecil fungsi skor di iris (3a), lalu
-   pohon tunggal, ensemble, adapter, dan widget.
+1. Raditya picks options for Questions 1-5, writes them in the Decision section, and
+   changes the status to `accepted`.
+2. Check the still-unverified claims against the PDFs: Geurts aggregation (no. 2), C4.5
+   threshold (no. 3), UDT fractional tuples (no. 4), and ML-C4.5 leaf content (no. 5).
+3. Write the "equivalent" criterion (3b) before the experiment.
+4. Break the pilot into implementation tasks: a small score-function example on iris
+   (3a), then a single tree, the ensemble, the adapter, and the widget.

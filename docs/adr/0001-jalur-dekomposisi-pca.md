@@ -2,77 +2,78 @@
 status: accepted
 ---
 
-# Jalur dekomposisi inti PCA (covariance_eigh vs full SVD)
+# PCA core decomposition path (covariance_eigh vs full SVD)
 
-## Konteks
+## Context
 
-PCA Orange 3.40.0 memanggil sklearn `PCA(svd_solver='auto')`. Solver yang terpilih
-bergantung pada bentuk X setelah preprocessing (`sklearn/decomposition/_pca.py:531-543`;
-spesifikasi: `docs/orange-pca-internals.md`, Klaim 4 dan 6):
+Orange 3.40.0 PCA calls sklearn `PCA(svd_solver='auto')`. The solver chosen depends on
+the shape of X after preprocessing (`sklearn/decomposition/_pca.py:531-543`;
+specification: `docs/orange-pca-internals.md`, Claims 4 and 6):
 
-- p ≤ 1000 dan n ≥ 10p: `covariance_eigh` (eigen-dekomposisi matriks kovarians p × p).
-  iris 150×4 dan heart_disease 303×25 masuk ke sini.
-- Selain itu, bila min(n, p) ≤ 125: `full` (SVD dari X yang dipusatkan). Contoh:
-  sintetis 1000×125.
-- min(n, p) ≥ 126, n < 10p, max(n, p) > 500: `randomized`, hasilnya bergantung pada
-  `random_state=0`. Contoh: sintetis 1000×126, 1000×200, 600×130.
+- p ≤ 1000 and n ≥ 10p: `covariance_eigh` (eigendecomposition of the p × p covariance
+  matrix). iris 150×4 and heart_disease 303×25 fall here.
+- Otherwise, if min(n, p) ≤ 125: `full` (SVD of the centered X). Example: synthetic
+  1000×125.
+- min(n, p) ≥ 126, n < 10p, max(n, p) > 500: `randomized`, whose result depends on
+  `random_state=0`. Examples: synthetic 1000×126, 1000×200, 600×130.
 
-Angka yang relevan:
+Relevant numbers:
 
-- heart_disease, `covariance_eigh` vs `full`: komponen 1-18 `allclose` True
-  (maks 2.98e-13), `explained_variance_` 1-18 juga True. Komponen 19-25 (ruang nol, 7
-  eigenvalue ~0) False (maks 0.858), tapi itu tidak diuji (aturan test poin 2).
-- `covariance_eigh` memotong eigenvalue negatif ke 0 (`_pca.py:637`); heart_disease
-  punya 3 eigenvalue yang dipotong begitu.
-- `random_state` 0 vs 12345 tidak mengubah hasil di `covariance_eigh` maupun `full`
-  (`array_equal` True).
-- Tanda keduanya ditentukan `svd_flip` berbasis baris yang sama (`_pca.py:647`).
+- heart_disease, `covariance_eigh` vs `full`: components 1-18 `allclose` True
+  (max 2.98e-13), `explained_variance_` 1-18 also True. Components 19-25 (null space, 7
+  eigenvalues ~0) False (max 0.858), but those are not tested (test rule 2).
+- `covariance_eigh` clips negative eigenvalues to 0 (`_pca.py:637`); heart_disease has 3
+  eigenvalues clipped this way.
+- `random_state` 0 vs 12345 does not change the result on either `covariance_eigh` or
+  `full` (`array_equal` True).
+- On both paths the sign is set by the same row-based `svd_flip` (`_pca.py:647`).
 
-## Opsi
+## Options
 
-1. **Hanya `covariance_eigh`.** Satu jalur, sama dengan pilihan `auto` untuk iris dan
-   heart_disease. Kovarians mengkuadratkan bilangan kondisi, jadi eigenvalue kecil
-   kurang akurat; untuk data n < 10p hasilnya dibandingkan dengan `full` milik Orange,
-   dan kesamaannya baru terbukti di satu dataset (heart_disease).
-2. **Hanya `full` SVD.** Satu jalur, lebih stabil secara numerik. Untuk iris dan
-   heart_disease, Orange sendiri memakai `covariance_eigh`, jadi kesamaan bergantung pada
-   selisih antarjalur (2.98e-13 di heart_disease, jauh di bawah toleransi).
-3. **Meniru `auto` (dua jalur + aturan pemilihan).** Paling dekat dengan Orange untuk
-   setiap bentuk data. Kode dan test dua kali lipat; aturan pemilihan sklearn harus
-   ikut dijaga bila versi sklearn di Orange berubah.
+1. **`covariance_eigh` only.** One path, the same as what `auto` picks for iris and
+   heart_disease. The covariance squares the condition number, so small eigenvalues are
+   less accurate; for data with n < 10p the result is compared against Orange's `full`,
+   and agreement has only been shown on one dataset (heart_disease).
+2. **`full` SVD only.** One path, numerically more stable. For iris and heart_disease
+   Orange itself uses `covariance_eigh`, so agreement depends on the difference between
+   paths (2.98e-13 on heart_disease, far below the tolerance).
+3. **Reproduce `auto` (two paths + selection rule).** Closest to Orange for every data
+   shape. Twice the code and tests; sklearn's selection rule must be tracked whenever the
+   sklearn version in Orange changes.
 
-Cakupan `randomized` (berlaku untuk opsi mana pun):
+`randomized` coverage (applies to any option):
 
-- **a. Batasi zestcore ke min(n, p) ≤ 125**, tolak atau beri peringatan di luar itu.
-  Sederhana, cukup untuk iris dan heart_disease; bank marketing perlu dicek dulu.
-- **b. Tiru `randomized` + `random_state=0`.** Harus mereproduksi urutan bilangan acak
-  dan iterasi `randomized_svd` sklearn agar identik; jauh lebih rumit.
+- **a. Limit zestcore to min(n, p) ≤ 125**, reject or warn outside that range. Simple,
+  enough for iris and heart_disease; bank marketing needs to be checked first.
+- **b. Reproduce `randomized` + `random_state=0`.** Would have to reproduce the random
+  number sequence and iterations of sklearn's `randomized_svd` to be identical; far more
+  complex.
 
-## Konsekuensi
+## Consequences
 
-- Opsi 1 atau 2: data yang di Orange jatuh ke jalur lain hanya *mendekati* identik,
-  besar selisihnya harus diukur per dataset, bukan diasumsikan.
-- Opsi 3: identik pada jalur yang sama, tapi zestcore ikut terikat pada aturan internal
-  sklearn 1.5.2.
-- Cakupan a: zestcore tidak bisa dipakai untuk data lebar (min(n, p) ≥ 126) dan n < 10p
-  di Tahap 1.
-- Komponen di ruang nol tidak identik di opsi mana pun; test membatasi diri pada
-  komponen dengan eigenvalue tidak kembar.
+- Option 1 or 2: data that Orange sends down another path is only *approximately*
+  identical; the size of the difference must be measured per dataset, not assumed.
+- Option 3: identical on the same path, but zestcore becomes tied to sklearn 1.5.2
+  internal rules.
+- Coverage a: zestcore cannot be used for wide data (min(n, p) ≥ 126) with n < 10p in
+  Stage 1.
+- Components in the null space are not identical under any option; tests restrict
+  themselves to components with non-tied eigenvalues.
 
-## Keputusan
+## Decision
 
-Saya memilih opsi 1 (hanya `covariance_eigh`) dengan cakupan a.
+I chose option 1 (`covariance_eigh` only) with coverage a.
 
-Alasannya, dua dataset Tahap 1 (iris 150×4 dan heart_disease 303×25) di Orange
-memang diproses lewat `covariance_eigh`. Dengan satu jalur yang sama, zestcore bisa
-identik dengan Orange untuk data ini, sementara kode dan test tetap kecil sesuai target
-Tahap 1. Ketidakakuratan eigenvalue kecil pada jalur kovarians saya terima karena
-komponen yang diuji hanya yang eigenvalue-nya tidak kembar.
+The reason is that both Stage 1 datasets (iris 150×4 and heart_disease 303×25) are in
+fact processed through `covariance_eigh` in Orange. With the same single path, zestcore
+can be identical to Orange for this data, while the code and tests stay small, in line
+with the Stage 1 target. I accept the reduced accuracy of small eigenvalues on the
+covariance path because only components with non-tied eigenvalues are tested.
 
-Penjaga bentuk data: bila X tidak memenuhi p ≤ 1000 dan n ≥ 10p, zestcore tetap
-menghitung tetapi mengeluarkan `warnings.warn` yang menyatakan bahwa Orange memakai
-jalur lain (`full` atau `randomized`) untuk bentuk ini, sehingga hasilnya hanya
-mendekati dan tidak dijamin identik. `randomized` tidak ditiru. Sebelum dipakai,
-bentuk dataset baru seperti bank marketing dicek setelah Continuize. Kalau jatuh di
-luar syarat, selisihnya diukur, bukan diasumsikan. Keputusan ini ditinjau ulang bila
-model Tahap 2 butuh data lebar.
+Data shape guard: if X does not satisfy p ≤ 1000 and n ≥ 10p, zestcore still computes
+but emits a `warnings.warn` stating that Orange uses a different path (`full` or
+`randomized`) for this shape, so the result is only approximate and not guaranteed to be
+identical. `randomized` is not reproduced. Before use, the shape of a new dataset such
+as bank marketing is checked after Continuize. If it falls outside the condition, the
+difference is measured, not assumed. This decision is revisited if a Stage 2 model needs
+wide data.
