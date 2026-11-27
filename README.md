@@ -51,7 +51,7 @@ widget:
 
 **Claim:** Zest PCA results are identical to Orange 3.40.0 PCA **within the spec
 tolerance** (`np.allclose`, rtol=1e-5, atol=1e-8; rules for tied components and the null
-space in the [specification](docs/orange-pca-internals.md#aturan-test)) **for X processed
+space in the [specification](docs/orange-pca-internals.md#test-rules)) **for X processed
 by Orange preprocessors**. The claim is tested in `tests/test_owzestpca.py` (widget vs
 widget) and demonstrated in the GUI on the heart_disease case. Maximum score difference
 8.88e-16, components 25 × 25 and scores 303 × 25, see

@@ -68,7 +68,7 @@ only `*_scores.pkl`; the score CSV (45211 rows) was not created.
 
 The heart_disease case workflow (2 PCs → Logistic Regression), built once with Orange
 PCA and once with Zest PCA. Settings, results, and the answer are in
-`docs/orange-pca-internals.md`, section "Bukti GUI T2a".
+`docs/orange-pca-internals.md`, section "GUI evidence for T2a".
 
 | File | Contents |
 |---|---|
