@@ -94,3 +94,19 @@ class TestOWZestPCA(WidgetTest):
         self.send_signal(w.Inputs.data, iris)
         self.assertFalse(w.Error.fit_failed.is_shown())
         self.assertIsNotNone(self.get_output(w.Outputs.transformed_data))
+
+    def test_data_baru_lewat_domain_transformed_data(self):
+        """Apply Domain = data.transform(template.domain) (owtransform.py:27).
+        Latih pada iris genap (75 >= 10p, jalur covariance_eigh), proyeksikan ganjil."""
+        iris = Table("iris")
+        train, test = iris[::2], iris[1::2]
+        settings = {"ncomponents": 4, "normalize": True}
+        ref_t, ref_c = self.run_owpca(train, settings)
+        got_t, got_c = self.run_zest(train, settings)
+
+        ref_new = test.transform(ref_t.domain).X
+        got_new = test.transform(got_t.domain).X
+
+        self.assertEqual(got_new.shape, (len(test), 4))
+        rows = compare(ref_c.X, ref_new, got_c.X, got_new, zero_variance_count(train))
+        self.assertEqual([r for r in rows if not r["allclose"]], [])
