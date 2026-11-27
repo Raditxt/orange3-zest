@@ -6,6 +6,11 @@ from typing import NamedTuple
 import numpy as np
 
 
+class ShapeWarning(UserWarning):
+    """X di luar p <= 1000 dan n >= 10p: Orange memakai jalur lain (ADR 0001).
+    Kategori tersendiri supaya widget bisa menangkapnya tanpa mencocokkan teks."""
+
+
 class PCAResult(NamedTuple):
     mean: np.ndarray                      # (p,)
     components: np.ndarray                # (k, p), baris = komponen
@@ -38,13 +43,15 @@ def pca(X, n_components=None):
     """
     X = np.asarray(X, dtype=float)
     n, p = X.shape
-    if n < 2: raise ValueError(f"PCA butuh minimal 2 baris, dapat n = {n}")
+    if n < 2:
+        raise ValueError(f"PCA butuh minimal 2 baris, dapat n = {n}")
     k = min(n, p) if n_components is None else min(n_components, n, p)
     if not (p <= 1000 and n >= 10 * p):
         warnings.warn(
             f"X {n}x{p} tidak memenuhi p <= 1000 dan n >= 10p: Orange memakai jalur "
             "'full' atau 'randomized' untuk bentuk ini, jadi hasil zestcore hanya "
-            "mendekati dan tidak dijamin identik (ADR 0001).", stacklevel=2)
+            "mendekati dan tidak dijamin identik (ADR 0001).",
+            ShapeWarning, stacklevel=2)
 
     mean = X.mean(axis=0)
     C = X.T @ X

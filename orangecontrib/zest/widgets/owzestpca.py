@@ -1,15 +1,18 @@
 """Widget Zest PCA: membungkus ZestPCA (orangecontrib/zest/pca.py). Output disusun
 seperti OWPCA (Orange/widgets/unsupervised/owpca.py:316-355). Rancangan:
 docs/orange-pca-internals.md, "Rancangan OWZestPCA"."""
+import warnings
+
 import numpy as np
 from Orange.data import ContinuousVariable, Domain, StringVariable, Table
 from Orange.data.util import get_unique_names
 from Orange.preprocess import Normalize
 from Orange.widgets import gui
 from Orange.widgets.settings import Setting
-from Orange.widgets.widget import Input, Output, OWWidget
+from Orange.widgets.widget import Input, Msg, Output, OWWidget
 
 from orangecontrib.zest.pca import ZestPCA
+from zestcore.pca import ShapeWarning
 
 MAX_COMPONENTS = 100  # sama dengan OWPCA (owpca.py:27)
 
@@ -30,6 +33,9 @@ class OWZestPCA(OWWidget):
     normalize = Setting(True)
 
     want_main_area = False
+
+    class Warning(OWWidget.Warning):
+        shape_outside_spec = Msg("{}")  # teks ShapeWarning dari zestcore
 
     def __init__(self):
         super().__init__()
@@ -57,11 +63,24 @@ class OWZestPCA(OWWidget):
         preprocessors = list(ZestPCA.preprocessors)
         if self.normalize:
             preprocessors.append(Normalize(center=False))  # owpca.py:281-282
-        self._model = ZestPCA(n_components=MAX_COMPONENTS,
-                              preprocessors=preprocessors)(self.data)
-        # Skor lewat compute_value, jalur yang sama dengan OWPCA (owpca.py:321)
-        self._transformed = self._model(self.data)
+        # catch_warnings mengubah state global: alasan fit dibuat sinkron
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ShapeWarning)
+            self._model = ZestPCA(n_components=MAX_COMPONENTS,
+                                  preprocessors=preprocessors)(self.data)
+            # Skor lewat compute_value, jalur yang sama dengan OWPCA (owpca.py:321)
+            self._transformed = self._model(self.data)
+        self._show_warnings(caught)
         self.commit()
+
+    def _show_warnings(self, caught):
+        """ShapeWarning jadi Msg widget; warning lain dikeluarkan lagi apa adanya."""
+        self.Warning.shape_outside_spec.clear()
+        for w in caught:
+            if issubclass(w.category, ShapeWarning):
+                self.Warning.shape_outside_spec(str(w.message))
+            else:
+                warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
 
     def clear_outputs(self):
         self.Outputs.transformed_data.send(None)

@@ -68,3 +68,14 @@ class TestOWZestPCA(WidgetTest):
         self.send_signal(w.Inputs.data, None)
         self.assertIsNone(self.get_output(w.Outputs.transformed_data))
         self.assertIsNone(self.get_output(w.Outputs.components))
+
+    def test_bentuk_di_luar_spec_tampil_sebagai_warning(self):
+        """heart_disease[:100]: 100x25 setelah Continuize, n < 10p (ADR 0001)."""
+        w = self.widget
+        self.send_signal(w.Inputs.data, Table("heart_disease")[:100])
+        self.assertTrue(w.Warning.shape_outside_spec.is_shown())
+        self.assertIn("100x25", str(w.Warning.shape_outside_spec))
+        self.assertIsNotNone(self.get_output(w.Outputs.transformed_data))
+
+        self.send_signal(w.Inputs.data, Table("iris"))
+        self.assertFalse(w.Warning.shape_outside_spec.is_shown())
