@@ -1,4 +1,4 @@
-"""Bukti pilihan bentuk objek proj untuk ZestPCAModel (ADR 0003, Catatan implementasi).
+"""Bukti pilihan bentuk objek proj untuk ZestPCAModel (ADR 0003, Implementation notes).
 
 Jalankan dengan Python bawaan Orange:
     D:\\Orange\\python.exe docs\\proofs\\proj_forms_check.py

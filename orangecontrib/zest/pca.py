@@ -1,6 +1,6 @@
 """Adaptor Orange untuk zestcore.pca: pasangan Projector/DomainProjection seperti
 PCA/PCAModel Orange (Orange/projection/pca.py). Desain: docs/adr/0003 (opsi 1c,
-Catatan implementasi). Semua kelas di level modul supaya domain hasil bisa di-pickle."""
+Implementation notes). Semua kelas di level modul supaya domain hasil bisa di-pickle."""
 from Orange.data.util import get_unique_names
 from Orange.preprocess import Continuize, SklImpute
 from Orange.projection import DomainProjection, Projector
