@@ -7,7 +7,7 @@ rtol=1e-5 atol=1e-8); rasio varians dengan compare_variance().
 from importlib.metadata import entry_points
 from pathlib import Path
 
-from Orange.data import Table
+from Orange.data import Domain, Table
 from Orange.widgets.unsupervised import owpca
 from Orange.widgets.unsupervised.owpca import OWPCA
 from orangecanvas.registry import WidgetRegistry
@@ -101,6 +101,29 @@ class TestOWZestPCA(WidgetTest):
         self.send_signal(w.Inputs.data, iris)
         self.assertFalse(w.Error.fit_failed.is_shown())
         self.assertIsNotNone(self.get_output(w.Outputs.transformed_data))
+
+    def test_tanpa_atribut_tampil_sebagai_error(self):
+        """p = 0 (iris hanya kelas): SklImpute sklearn menolak X (150, 0) dengan
+        ValueError, jadi tertangkap Error.fit_failed, bukan crash."""
+        w = self.widget
+        iris = Table("iris")
+        self.send_signal(w.Inputs.data, iris.transform(Domain([], iris.domain.class_var)))
+        self.assertTrue(w.Error.fit_failed.is_shown())
+        self.assertIsNone(self.get_output(w.Outputs.transformed_data))
+        self.assertIsNone(self.get_output(w.Outputs.components))
+
+    def test_spin_diubah_sebelum_ada_data(self):
+        """Penjaga commit(): belum ada hasil fit, output tetap None tanpa crash.
+        commit() dipanggil langsung (= callback spin): exception di dalam callback Qt
+        membuat proses pytest abort, bukan sekadar test merah."""
+        w = self.widget
+        w.ncomponents = 3
+        w.commit()
+        self.assertIsNone(self.get_output(w.Outputs.transformed_data))
+        self.assertIsNone(self.get_output(w.Outputs.components))
+
+        self.send_signal(w.Inputs.data, Table("iris"))
+        self.assertEqual(len(self.get_output(w.Outputs.transformed_data).domain.attributes), 3)
 
     def test_data_baru_lewat_domain_transformed_data(self):
         """Apply Domain = data.transform(template.domain) (owtransform.py:27).
