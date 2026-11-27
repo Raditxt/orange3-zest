@@ -165,31 +165,73 @@ Raditya** (langkah di bawah), lalu README (output di luar lingkup, cara pasang).
   - `package-data` dicek dengan build wheel dari salinan bersih: dengan bagian itu kedua
     SVG ikut, tanpa bagian itu tidak ada SVG. Build di folder repo sempat menyesatkan,
     karena `build/` dan `SOURCES.txt` sisa build sebelumnya ikut membawa SVG.
-  - Penjaga `commit()` saat belum ada hasil fit (spin diubah tanpa data) tidak punya
-    test, karena di luar seam yang disepakati.
+  - Penjaga `commit()` saat belum ada hasil fit (spin diubah tanpa data) diberi test
+    setelah review 27 Nov 2026 (`test_spin_diubah_sebelum_ada_data`). Test memanggil
+    `commit()` langsung, karena exception di callback Qt membuat proses pytest abort
+    (0xC0000409), bukan test merah. Uji sensitivitas: tanpa penjaga, test gagal dengan
+    `AttributeError`.
+  - `Error.fit_failed` tetap hanya menangkap `ValueError` (keputusan 2). Probe 27 Nov
+    2026: p = 0 (hanya kelas, atau diskrit 1 nilai), n = 0, kolom yang isinya NaN semua,
+    dan data sparse semuanya berujung `ValueError`, jadi tertangkap tanpa crash.
+    `LinAlgError` NumPy juga turunan `ValueError`. Test p = 0:
+    `test_tanpa_atribut_tampil_sebagai_error`. Pesannya masih teks mentah sklearn/NumPy
+    (misalnya "attempt to get argmax of an empty sequence" untuk kolom NaN). Data
+    konstan tidak error, tetapi rasio varians jadi `nan` (0/0 di `zestcore/pca.py`).
+    Keduanya belum ditangani.
+  - Lint: `[tool.ruff.lint]` di `pyproject.toml` (`E4, E7, E9, F`, E402 dikecualikan
+    untuk notebook), jadi cukup `ruff check .`.
   - `self.widget` diisi di `setUp`, sehingga cek bawaan `WidgetTest` (ukuran minimum,
     ekspor gambar, kelas dasar `Msg`) ikut jalan.
   - `zestcore/pca.py:41` (`if n < 2: raise ...` satu baris, ruff E701) dipecah di siklus 3.
 
-#### Bukti GUI T2a (dikerjakan Raditya)
+#### Bukti GUI T2a: kasus heart_disease (dikerjakan Raditya, 27 Nov 2026)
 
-1. Pasang add-on ke Python Orange (sekali saja; sudah editable di mesin ini, ulangi bila
-   ragu): `D:\Orange\python.exe -m pip install -e .` dari folder repo. Kalau Orange
-   sedang terbuka, tutup lalu buka lagi.
-2. Buka Orange. Di panel kiri harus ada kategori **Zest** (ikon irisan jeruk) berisi
-   **Zest PCA** (ikon titik data + dua sumbu, beda dari ikon PCA Orange).
-3. Workflow perbandingan: File (iris) → PCA dan File (iris) → Zest PCA, setting sama
-   (Components 2, Normalize ON). Sambungkan Transformed Data masing-masing ke Data Table,
-   lalu Components masing-masing ke Data Table. Nilai harus sama sampai digit yang
-   tampil. Ulangi dengan Normalize OFF dan Components 4.
-4. Warning: File (heart_disease) → Data Sampler (Fixed sample size 100) → Zest PCA.
-   Bar kuning harus berisi teks "X 100x25 tidak memenuhi p <= 1000 dan n >= 10p ..."
-   dan output tetap keluar.
-5. Data baru (opsional): latih Zest PCA pada sebagian iris, lalu Apply Domain dengan data
-   = sisa iris dan template = Transformed Data Zest PCA. Kolom PC harus terisi (tidak
-   kosong).
-6. Simpan `.ows` dan screenshot ke `evidence/pca/` (pola penamaan sama dengan bukti
-   bank-full), lalu Save Data CSV bila angka ingin dibandingkan lewat skrip.
+Pertanyaan kasus: **bisakah 25 kolom heart_disease (13 atribut, jadi 25 kolom setelah
+Continuize) diringkas jadi 2 PC yang masih membedakan sakit/sehat (`diameter narrowing`)?** Workflow
+yang sama dibangun dua kali, sekali dengan PCA Orange dan sekali dengan Zest PCA. File ada
+di `evidence/pca/` (daftar lengkap di README-nya).
+
+| Widget | Setting (dibaca dari `.ows`) |
+|---|---|
+| File | `heart_disease.tab` (bawaan Orange), 303 baris |
+| PCA / Zest PCA | Components 25, Normalize ON |
+| Select Columns | fitur PC1, PC2; target `diameter narrowing` |
+| Logistic Regression | bawaan (L2) |
+| Test and Score | Cross validation 10 fold, stratified; satu untuk 2 PC, satu untuk 25 kolom asli (File langsung) |
+| Scatter Plot | PC1 × PC2, warna `diameter narrowing` |
+| Data Sampler → Zest PCA (1) | hanya di `heart_pca_zest.ows`: Fixed sample size 100, stratified, seed tetap |
+
+Hasil (Logistic Regression, 10-fold CV, sama di cabang Orange dan Zest):
+
+| Fitur | AUC | CA |
+|---|---|---|
+| 2 PC (PC1, PC2) | 0.900 | 0.818 |
+| 25 kolom asli | 0.909 | 0.845 |
+
+Jawaban: **ya, dengan sedikit kehilangan.** Dua PC hanya membawa 29.3% varians
+(PC1 0.193, PC2 0.100). Meski begitu, AUC turun 0.009 dan CA turun 0.027 dibanding 25
+kolom asli. Di Scatter Plot kedua kelas terpisah terutama sepanjang PC1. PC1 kira-kira
+menggambarkan respons jantung saat uji latihan. Bobot terbesar |w| pada PC1 adalah
+`thal=normal` +0.317, `exerc ind ang` ±0.311, `slope peak exc ST=upsloping` +0.294,
+`chest pain=asymptomatic` −0.293, `max HR` +0.284, dan `ST by exercise` −0.279. PC2
+didominasi `gender` (±0.472). Ini ringkasan bobot, bukan klaim kausal.
+
+Zest vs Orange:
+
+- **Presisi penuh (bukti utama):** skor `heart_zestpca_norm-on_25pc_scores.pkl` (Save
+  Data) dan komponen `heart_zestpca_norm-on_25pc_components.npy` (Python Script)
+  dibandingkan dengan `heart_pca_norm-on_25pc_*` (bukti GUI PCA Orange 20 Nov 2026,
+  setting sama) oleh `evidence/pca/compare_zest_gui.py` (`compare()`, rtol=1e-5
+  atol=1e-8): `[norm-on_25pc] IDENTIK`, komponen (25, 25), skor (303, 25), selisih maks
+  8.88e-16. Hasil ini sama di mesin Raditya dan saat dijalankan ulang 27 Nov 2026. Bukan
+  CSV, karena CSV dibulatkan `%g`.
+- **Tampilan GUI (observasi Raditya):** tabel Components, Test and Score, dan scatter
+  sama di kedua cabang sampai digit yang tampil.
+- **Kategori dan ikon:** `zest_category.png`, kategori Zest dengan Zest PCA di panel kiri.
+- **Warning ADR 0001:** `heart_zestpca_warning.png`. Pada 100 baris (100×25, n < 10p) Zest
+  PCA (1) menampilkan ikon warning, dan output tetap keluar.
+
+Cara memasang add-on ke Orange: lihat README repo, bagian "Memasang add-on".
 
 - Langkah 1 selesai (25 Nov 2026): `transform` di `zestcore/pca.py`, Seam A
   (`tests/test_zestcore_transform.py`) hijau. Selisih maks vs `model(test).X`:

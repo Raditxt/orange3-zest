@@ -1,6 +1,9 @@
-# Bukti GUI: PCA Orange 3.40.0
+# Bukti GUI: PCA Orange 3.40.0 dan Zest PCA
 
-Output widget PCA yang direkam dari GUI Orange, dipakai untuk membuktikan bahwa PCA
+Bukti widget Zest PCA (T2a) ada di bagian
+[Bukti GUI T2a](#bukti-gui-t2a-zest-pca-vs-pca-orange-heart_disease-27-nov-2026).
+Bagian lain di file ini tentang bukti Tahap 1: output widget PCA yang direkam dari GUI
+Orange, dipakai untuk membuktikan bahwa PCA
 Orange lewat skrip (projector widget) sama dengan yang dihasilkan GUI. Perbandingannya
 ada di `notebooks/01_pca_gui_evidence.ipynb` (iris, heart_disease),
 `notebooks/02_pca_perbandingan.ipynb` (ketiga dataset) dan `tests/` (aturan uji:
@@ -61,6 +64,40 @@ Nama file: `<data>_pca_norm-on_<k>pc_<output>.<ext>`.
 `<data>` = `iris` (150 × 4, k = 4), `heart` (heart_disease 303 × 25 setelah
 Continuize, k = 25) dan `bank` (bank-full 45211 × 51 setelah Continuize, k = 51).
 Untuk bank hanya ada `*_scores.pkl`; CSV skor (45211 baris) tidak dibuat.
+
+## Bukti GUI T2a: Zest PCA vs PCA Orange (heart_disease, 27 Nov 2026)
+
+Workflow kasus heart_disease (2 PC → Logistic Regression), dibangun sekali dengan PCA
+Orange dan sekali dengan Zest PCA. Setting, hasil, dan jawabannya ada di
+`docs/orange-pca-internals.md`, bagian "Bukti GUI T2a".
+
+| File | Isi |
+|---|---|
+| `heart_pca_orange.ows` | cabang Orange: File → PCA (25 PC, Normalize ON) → Select Columns (PC1, PC2) → Test and Score (Logistic Regression, 10-fold CV); Scatter Plot, Data Table Components; Test and Score untuk kolom asli |
+| `heart_pca_zest.ows` | cabang Zest, sama dengan di atas, ditambah Save Data (`.pkl` skor), Python Script (`.npy` komponen), dan Data Sampler (100 baris) → Zest PCA (1) untuk warning |
+| `heart_zestpca_norm-on_25pc_scores.pkl` | Transformed Data Zest PCA, `Table` presisi penuh (303 × 25 + kelas) |
+| `heart_zestpca_norm-on_25pc_components.npy` | Components Zest PCA, `components_` 25 × 25 float64 |
+| `compare_zest_gui.py` | membandingkan dua file di atas dengan `heart_pca_norm-on_25pc_*` (acuan PCA Orange) lewat `compare()` |
+| `heart_pca_orange_workflow.png`, `heart_pca_zest_workflow.png` | kanvas kedua workflow |
+| `heart_pca_orange_scatter.png`, `heart_pca_zest_scatter.png` | Scatter Plot PC1 × PC2, warna `diameter narrowing` |
+| `heart_pca_zest_testscore.png` | Test and Score cabang Zest: 2 PC (AUC 0.900, CA 0.818) dan kolom asli (AUC 0.909, CA 0.845) |
+| `heart_zestpca_warning.png` | Zest PCA (1) pada 100 baris (100 × 25, n < 10p) dengan ikon warning ADR 0001 |
+| `zest_category.png` | kategori Zest di panel widget Orange |
+
+Bukti presisi penuh adalah `.pkl` dan `.npy`. CSV tidak dibuat untuk T2a. Jalankan dari
+root repo:
+
+```powershell
+D:\Orange\python.exe evidence\pca\compare_zest_gui.py
+# [norm-on_25pc] IDENTIK: komponen (25, 25), skor (303, 25), selisih maks 8.88e-16
+```
+
+Di `heart_pca_zest_testscore.png` dan `heart_pca_zest_scatter.png` pojok kanan atas
+ditutup kotak putih. Area itu berisi jendela aplikasi lain yang ikut terekam, bukan
+bagian dari Orange. Isi jendela Orange tidak diubah.
+
+Path `np.save` di Python Script `heart_pca_zest.ows` absolut (folder repo di mesin
+perekaman). Sesuaikan bila workflow dibuka di mesin lain.
 
 ## Catatan
 
