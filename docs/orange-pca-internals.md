@@ -124,19 +124,72 @@ dan test tahu apa yang terjadi sebelum X sampai ke zestcore.
 
 Bagian ini untuk sesi berikutnya setelah `/clear`: cukup baca ini + CLAUDE.md.
 
-### T2a: widget Zest PCA (handoff 24 Nov 2026)
+### T2a: widget Zest PCA (update 27 Nov 2026)
 
-Task yang sedang jalan. Lingkup dan definisi done ada di brief task T2a (Notion). Desain
-ada di `docs/adr/0003-output-widget-dan-transform.md` (opsi 1c).
+Lingkup dan definisi done ada di brief task T2a (Notion). Desain ada di
+`docs/adr/0003-output-widget-dan-transform.md` (opsi 1c).
 
 Selesai:
 
 - CLAUDE.md "Tahap sekarang" memasukkan widget Zest PCA ke lingkup (`13b2eb2`).
 - ADR 0003 opsi 1c accepted (`f444838`).
 
-Sedang jalan: langkah 4b (widget). Langkah 1-3 (`zestcore.transform`) dan 4a (adaptor)
-selesai. Rancangan 4b disetujui 25 Nov 2026 (bagian "Rancangan OWZestPCA" di bawah);
-`/tdd` dilanjut Jumat 27 Nov 2026.
+Kode T2a selesai (langkah 1-4b), test dan lint hijau. Yang tersisa: **bukti GUI oleh
+Raditya** (langkah di bawah), lalu README (output di luar lingkup, cara pasang).
+
+- Langkah 4b selesai (27 Nov 2026): widget `OWZestPCA`, 6 siklus `/tdd`, satu commit per
+  siklus (`9391049`..`85f12c9`). File: `orangecontrib/zest/widgets/owzestpca.py`,
+  `widgets/__init__.py` (kategori Zest), `widgets/icons/{ZestPCA,category}.svg`,
+  `ShapeWarning` di `zestcore/pca.py`, `package-data` di `pyproject.toml`, test
+  `tests/test_owzestpca.py` (`WidgetTest`, pembanding widget OWPCA dengan setting sama,
+  `compare()` lengkap, toleransi spec). Rancangan tidak berubah.
+
+  | siklus | perilaku | hasil |
+  |---|---|---|
+  | 1 | iris → Transformed Data + Components vs OWPCA: nama, kelas/meta, `variance`, meta Components | (2 PC, Normalize ON): komponen 0.0, skor 0.0, rasio 0.0; (4 PC, OFF): 0.0 / 2.78e-17 / 0.0 |
+  | 2 | input `None` mengosongkan kedua output | – |
+  | 3 | `heart_disease[:100]` (100x25, n < 10p) → `Warning.shape_outside_spec` berisi teks `ShapeWarning`; output tetap dikirim; hilang saat iris masuk | – |
+  | 4 | `iris[:1]` → `Error.fit_failed` ("minimal 2 baris"), output dikosongkan; hilang saat iris masuk | – |
+  | 5 | latih iris genap (4 PC, ON), ganjil di-transform ke domain Transformed Data | skor data baru 5.55e-17 |
+  | 6 | entry point `orange.widgets` → `WidgetDiscovery` → `icon_loader`: kategori Zest, ikon widget dan kategori `.svg`, ikon ≠ `PCA.svg` Orange | – |
+
+  Suite: 69 lulus, 0 skip (lokal, bank-full ada). CI `85f12c9` hijau: 60 lulus, 9 skip
+  (test bank-full, datanya tidak ada di runner). Lint: ruff 0.17.6 di venv terpisah,
+  `ruff check --isolated --select E4,E7,E9,F zestcore orangecontrib tests` bersih (set
+  default ruff lama; default ruff 0.17 ikut menyalakan aturan urutan import I001 dan
+  RUF012, yang sudah dilanggar test lama, jadi itu soal gaya dan belum jadi aturan repo).
+  Catatan:
+  - Siklus 5 langsung hijau, karena compute_value dibawa adaptor 4a. Uji sensitivitas:
+    Transformed Data dibuat sebagai tabel biasa tanpa compute_value (opsi 2 ADR 0003),
+    hasilnya hanya test siklus 5 yang gagal.
+  - `package-data` dicek dengan build wheel dari salinan bersih: dengan bagian itu kedua
+    SVG ikut, tanpa bagian itu tidak ada SVG. Build di folder repo sempat menyesatkan,
+    karena `build/` dan `SOURCES.txt` sisa build sebelumnya ikut membawa SVG.
+  - Penjaga `commit()` saat belum ada hasil fit (spin diubah tanpa data) tidak punya
+    test, karena di luar seam yang disepakati.
+  - `self.widget` diisi di `setUp`, sehingga cek bawaan `WidgetTest` (ukuran minimum,
+    ekspor gambar, kelas dasar `Msg`) ikut jalan.
+  - `zestcore/pca.py:41` (`if n < 2: raise ...` satu baris, ruff E701) dipecah di siklus 3.
+
+#### Bukti GUI T2a (dikerjakan Raditya)
+
+1. Pasang add-on ke Python Orange (sekali saja; sudah editable di mesin ini, ulangi bila
+   ragu): `D:\Orange\python.exe -m pip install -e .` dari folder repo. Kalau Orange
+   sedang terbuka, tutup lalu buka lagi.
+2. Buka Orange. Di panel kiri harus ada kategori **Zest** (ikon irisan jeruk) berisi
+   **Zest PCA** (ikon titik data + dua sumbu, beda dari ikon PCA Orange).
+3. Workflow perbandingan: File (iris) → PCA dan File (iris) → Zest PCA, setting sama
+   (Components 2, Normalize ON). Sambungkan Transformed Data masing-masing ke Data Table,
+   lalu Components masing-masing ke Data Table. Nilai harus sama sampai digit yang
+   tampil. Ulangi dengan Normalize OFF dan Components 4.
+4. Warning: File (heart_disease) → Data Sampler (Fixed sample size 100) → Zest PCA.
+   Bar kuning harus berisi teks "X 100x25 tidak memenuhi p <= 1000 dan n >= 10p ..."
+   dan output tetap keluar.
+5. Data baru (opsional): latih Zest PCA pada sebagian iris, lalu Apply Domain dengan data
+   = sisa iris dan template = Transformed Data Zest PCA. Kolom PC harus terisi (tidak
+   kosong).
+6. Simpan `.ows` dan screenshot ke `evidence/pca/` (pola penamaan sama dengan bukti
+   bank-full), lalu Save Data CSV bila angka ingin dibandingkan lewat skrip.
 
 - Langkah 1 selesai (25 Nov 2026): `transform` di `zestcore/pca.py`, Seam A
   (`tests/test_zestcore_transform.py`) hijau. Selisih maks vs `model(test).X`:
@@ -208,10 +261,10 @@ Berikutnya (per langkah, tunggu Raditya di setiap langkah):
        dengan n_latih ≥ 250 (10p, p = 25), supaya Orange tetap di jalur covariance_eigh;
      - pickle bolak-balik (domain hasil dan model);
      - Normalize OFF.
-   - **4b. Widget**: `OWZestPCA` + `WidgetTest`. Warning ADR 0001 dari `zestcore.pca`
-     (bentuk di luar p ≤ 1000 dan n ≥ 10p) ditampilkan sebagai `Msg` widget. Ikon dan
-     kategori widget. Rancangan disetujui 25 Nov 2026 (lihat di bawah); `/tdd` belum
-     dimulai, lanjut Jumat 27 Nov 2026.
+   - **4b. Widget** (selesai 27 Nov 2026, lihat di atas): `OWZestPCA` + `WidgetTest`.
+     Warning ADR 0001 dari `zestcore.pca` (bentuk di luar p ≤ 1000 dan n ≥ 10p)
+     ditampilkan sebagai `Msg` widget. Ikon dan kategori widget. Rancangan disetujui
+     25 Nov 2026 (lihat di bawah).
 
 #### Rancangan OWZestPCA (4b, disetujui 25 Nov 2026)
 
@@ -344,7 +397,8 @@ Keputusan yang disetujui Raditya (jangan diubah tanpa diskusi):
 
 ### Task berikutnya
 
-1. **T2a: widget Zest PCA** (sedang jalan). Lihat bagian T2a di atas.
+1. **T2a: widget Zest PCA** (kode selesai 27 Nov 2026; tersisa bukti GUI dan README).
+   Lihat bagian T2a di atas.
 2. **Widget ExtDT** (extended decision tree), model pertama Tahap 2, arahan Prof. Irfan
    23 Nov 2026. Memakai template T2a (pola tiga lapis, ADR 0003).
 
