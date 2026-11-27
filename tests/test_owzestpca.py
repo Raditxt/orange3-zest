@@ -79,3 +79,18 @@ class TestOWZestPCA(WidgetTest):
 
         self.send_signal(w.Inputs.data, Table("iris"))
         self.assertFalse(w.Warning.shape_outside_spec.is_shown())
+
+    def test_fit_gagal_tampil_sebagai_error(self):
+        """iris[:1]: zestcore.pca menolak n < 2 dengan ValueError."""
+        w = self.widget
+        iris = Table("iris")
+        self.send_signal(w.Inputs.data, iris)
+        self.send_signal(w.Inputs.data, iris[:1])
+        self.assertTrue(w.Error.fit_failed.is_shown())
+        self.assertIn("minimal 2 baris", str(w.Error.fit_failed))
+        self.assertIsNone(self.get_output(w.Outputs.transformed_data))
+        self.assertIsNone(self.get_output(w.Outputs.components))
+
+        self.send_signal(w.Inputs.data, iris)
+        self.assertFalse(w.Error.fit_failed.is_shown())
+        self.assertIsNotNone(self.get_output(w.Outputs.transformed_data))

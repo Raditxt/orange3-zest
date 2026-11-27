@@ -37,6 +37,9 @@ class OWZestPCA(OWWidget):
     class Warning(OWWidget.Warning):
         shape_outside_spec = Msg("{}")  # teks ShapeWarning dari zestcore
 
+    class Error(OWWidget.Error):
+        fit_failed = Msg("{}")
+
     def __init__(self):
         super().__init__()
         self.data = None
@@ -57,6 +60,8 @@ class OWZestPCA(OWWidget):
     def fit(self):
         """Fit ulang (data atau normalize berubah), lalu kirim output."""
         self._model = self._transformed = None
+        self.Warning.shape_outside_spec.clear()
+        self.Error.fit_failed.clear()
         if self.data is None:
             self.clear_outputs()
             return
@@ -66,16 +71,20 @@ class OWZestPCA(OWWidget):
         # catch_warnings mengubah state global: alasan fit dibuat sinkron
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", ShapeWarning)
-            self._model = ZestPCA(n_components=MAX_COMPONENTS,
-                                  preprocessors=preprocessors)(self.data)
-            # Skor lewat compute_value, jalur yang sama dengan OWPCA (owpca.py:321)
-            self._transformed = self._model(self.data)
+            try:
+                model = ZestPCA(n_components=MAX_COMPONENTS,
+                                preprocessors=preprocessors)(self.data)
+                # Skor lewat compute_value, jalur yang sama dengan OWPCA (owpca.py:321)
+                transformed = model(self.data)
+            except ValueError as err:  # misalnya zestcore menolak n < 2
+                self.Error.fit_failed(str(err))
+                model = transformed = None
         self._show_warnings(caught)
+        self._model, self._transformed = model, transformed
         self.commit()
 
     def _show_warnings(self, caught):
         """ShapeWarning jadi Msg widget; warning lain dikeluarkan lagi apa adanya."""
-        self.Warning.shape_outside_spec.clear()
         for w in caught:
             if issubclass(w.category, ShapeWarning):
                 self.Warning.shape_outside_spec(str(w.message))
